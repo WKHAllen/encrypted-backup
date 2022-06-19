@@ -1,17 +1,20 @@
 use clap::{Parser, Subcommand};
 use glob::Pattern;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Backs up and encrypts files and directories
     Backup {
         /// Comma-separated paths to include in the backup
-        #[clap(multiple_values = true, value_delimiter = ',', value_parser = validate_path)]
+        #[clap(short, long, required = true, multiple_values = true, value_delimiter = ',', value_parser = validate_path)]
         include_paths: Vec<PathBuf>,
         /// Comma-separated globs to exclude from the backup
         #[clap(short, long, multiple_values = true, value_delimiter = ',', value_parser = validate_glob)]
         exclude_globs: Vec<Pattern>,
+        /// Path to save the backup to
+        #[clap(short, long, required = true, value_parser = validate_output_path)]
+        output_path: PathBuf,
     },
     /// Decrypts and extracts an encrypted backup
     Extract {
@@ -62,6 +65,18 @@ fn validate_glob(glob_str: &str) -> Result<Pattern, String> {
     match glob_result {
         Ok(glob_pattern) => Ok(glob_pattern),
         Err(_e) => Err(format!("Invalid glob: {}", glob_str)),
+    }
+}
+
+fn validate_output_path(output_path_str: &str) -> Result<PathBuf, String> {
+    let output_path = PathBuf::from(output_path_str);
+
+    if output_path.exists() {
+        Err(format!("Path already exists: {}", output_path_str))
+    } else if !output_path.parent().unwrap_or(Path::new("")).exists() {
+        Err(format!("Parent path does not exist: {}", output_path_str))
+    } else {
+        Ok(output_path)
     }
 }
 

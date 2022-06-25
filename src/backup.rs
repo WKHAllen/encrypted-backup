@@ -41,18 +41,22 @@ fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
     false
 }
 
+fn last_path_component(path: &Path) -> Option<String> {
+    Some(
+        path.components()
+            .last()?
+            .as_os_str()
+            .to_str()
+            .unwrap()
+            .to_owned(),
+    )
+}
+
 fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), BackupError> {
     let mut include_set = HashSet::new();
 
     for include_path in include_paths {
-        let include_name = include_path
-            .components()
-            .last()
-            .unwrap()
-            .as_os_str()
-            .to_str()
-            .unwrap()
-            .to_owned();
+        let include_name = last_path_component(include_path).unwrap();
 
         if include_set.contains(&include_name) {
             return Err(BackupError::DuplicateIncludeName(include_name));
@@ -106,7 +110,14 @@ pub fn backup(
     let mut archive = tar::Builder::new(file);
 
     for include_path in include_paths {
-        append_to_archive(&mut archive, &include_path, &exclude_globs, Path::new(""))?;
+        let include_name = last_path_component(include_path).unwrap();
+
+        append_to_archive(
+            &mut archive,
+            &include_path,
+            &exclude_globs,
+            Path::new(&include_name),
+        )?;
     }
 
     archive.finish()?;

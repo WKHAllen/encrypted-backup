@@ -7,6 +7,7 @@ use std::fs::{self, File};
 use std::io;
 use std::path::{Path, PathBuf};
 
+/// An error during a backup or extraction.
 pub enum BackupError {
     IOError(io::Error),
     CryptoError(aes_gcm::Error),
@@ -43,12 +44,23 @@ impl From<aes_gcm::Error> for BackupError {
     }
 }
 
+/// Turn a password into a 256-bit key.
+///
+/// password: the password.
+///
+/// Returns the key generated from the hash of the password.
 fn password_to_key(password: &str) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(password);
     (&hasher.finalize()[..32]).try_into().unwrap()
 }
 
+/// Check if a path is excluded based on a list of globs.
+///
+/// path: the path.
+/// exclude_globs: the list of globs.
+///
+/// Returns whether the path is excluded by one or more of the globs.
 fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
     for glob in exclude_globs {
         if glob.matches_path(&path) {
@@ -59,6 +71,11 @@ fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
     false
 }
 
+/// Get the last component of a path.
+///
+/// path: the path.
+///
+/// Returns an option containing the last component of the path, or None if the path is empty.
 fn last_path_component(path: &Path) -> Option<String> {
     Some(
         path.components()
@@ -70,12 +87,21 @@ fn last_path_component(path: &Path) -> Option<String> {
     )
 }
 
+/// Check that there are no duplicate names in the paths included in a backup.
+///
+/// include_paths: the list of paths to be included in the backup.
+///
+/// Returns a result of the error variant if a duplicate include name was found.
 fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), BackupError> {
+    // Use a HashSet for quick lookups
     let mut include_set = HashSet::new();
 
+    // Check all include paths for duplicates
     for include_path in include_paths {
+        // The "name" of the include path is determined by the last component of its path
         let include_name = last_path_component(include_path).unwrap();
 
+        // If an include path with the same name is already in the set, then we have a duplicate
         if include_set.contains(&include_name) {
             return Err(BackupError::DuplicateIncludeName(include_name));
         } else {
@@ -83,9 +109,15 @@ fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), 
         }
     }
 
+    // No duplicates
     Ok(())
 }
 
+/// Check that a file does not already exist.
+///
+/// path: the path to the file.
+///
+/// Returns a result of the error variant if the path already exists.
 fn validate_file_does_not_exist(path: &Path) -> Result<(), BackupError> {
     if path.exists() {
         Err(BackupError::FileAlreadyExists(path.to_path_buf()))
@@ -94,20 +126,31 @@ fn validate_file_does_not_exist(path: &Path) -> Result<(), BackupError> {
     }
 }
 
+/// Append files to a tar archive recursively.
+///
+/// archive: a mutable reference to the tar archive.
+/// include_path: the path to the directory to be included in the archive.
+/// exclude_globs: the list of globs to exclude from the archive.
+/// relative_path: the relative path from the root of the archive.
+///
+/// Returns a result of the error variant if an error occurred while adding to the archive.
 fn append_to_archive<T: io::Write>(
     archive: &mut tar::Builder<T>,
     include_path: &Path,
     exclude_globs: &[Pattern],
     relative_path: &Path,
 ) -> io::Result<()> {
+    // Read the list of entries in the directory
     let entries = fs::read_dir(&include_path)?;
 
+    // Iterate over all entries that did not throw errors
     for entry in entries.into_iter().filter_map(|e| e.ok()) {
         if entry.file_type().unwrap().is_dir() {
             let entry_path = include_path.join(entry.file_name().to_str().unwrap());
             let entry_relative_path = relative_path.join(entry.file_name().to_str().unwrap());
 
             if !glob_excluded(&entry_path, &exclude_globs) {
+                // Recursively call this function for the current directory entry to add all of its contents to the archive
                 append_to_archive(archive, &entry_path, exclude_globs, &entry_relative_path)?;
             }
         } else if entry.file_type().unwrap().is_file() {
@@ -115,6 +158,7 @@ fn append_to_archive<T: io::Write>(
             let entry_relative_path = relative_path.join(entry.file_name().to_str().unwrap());
 
             if !glob_excluded(&entry_path, &exclude_globs) {
+                // Add the current file entry to the archive
                 archive.append_path_with_name(entry_path, entry_relative_path)?;
             }
         }
@@ -125,8 +169,8 @@ fn append_to_archive<T: io::Write>(
 
 /// Back up and encrypt a set of paths.
 ///
-/// include_paths: a list of paths to back up.
-/// exclude_globs: a list of globs to exclude from the backup.
+/// include_paths: the list of paths to back up.
+/// exclude_globs: the list of globs to exclude from the backup.
 /// output_dir: the directory in which to save the backup.
 /// name: the name of the backup.
 /// password: the password used to encrypt the backup.

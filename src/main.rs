@@ -1,4 +1,5 @@
 mod backup;
+mod crypto;
 
 use clap::{Parser, Subcommand};
 use glob::Pattern;
@@ -20,12 +21,18 @@ enum Commands {
         /// Name of the backup file
         #[clap(short, long, value_parser)]
         name: String,
+        /// Password for the backup file
+        #[clap(short, long, required = true, value_parser = validate_password)]
+        password: String,
     },
     /// Decrypts and extracts an encrypted backup
     Extract {
         /// Path to the encrypted backup
-        #[clap(value_parser = validate_file)]
-        path: PathBuf,
+        #[clap(required = true, value_parser = validate_file)]
+        backup_path: PathBuf,
+        /// Password for the backup file
+        #[clap(short, long, required = true, value_parser = validate_password)]
+        password: String,
     },
 }
 
@@ -85,6 +92,16 @@ fn validate_glob(glob_str: &str) -> Result<Pattern, String> {
     }
 }
 
+fn validate_password(password: &str) -> Result<String, String> {
+    if password.len() < 8 {
+        Err("Password must be at least 8 characters in length".to_owned())
+    } else if password.len() > 255 {
+        Err("Password must be at most 255 characters in length".to_owned())
+    } else {
+        Ok(password.to_owned())
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -94,11 +111,21 @@ fn main() {
             exclude_globs,
             output_dir,
             name,
-        } => match backup::backup(&include_paths, &exclude_globs, &output_dir, &name) {
+            password,
+        } => match backup::backup(
+            &include_paths,
+            &exclude_globs,
+            &output_dir,
+            &name,
+            &password,
+        ) {
             Ok(path) => println!("Successfully backed up to {}", path.display()),
             Err(e) => println!("Failed to perform backup: {}", e),
         },
-        Commands::Extract { path } => match backup::extract(&path) {
+        Commands::Extract {
+            backup_path,
+            password,
+        } => match backup::extract(&backup_path, &password) {
             Ok(path) => println!("Successfully extracted to {}", path.display()),
             Err(e) => println!("Failed to perform extration: {}", e),
         },

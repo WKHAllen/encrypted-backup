@@ -1,4 +1,6 @@
+use super::crypto;
 use glob::Pattern;
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fmt;
 use std::fs::{self, File};
@@ -7,14 +9,18 @@ use std::path::{Path, PathBuf};
 
 pub enum BackupError {
     IOError(io::Error),
+    CryptoError(aes_gcm::Error),
     DuplicateIncludeName(String),
+    FileAlreadyExists(PathBuf),
 }
 
 impl BackupError {
     pub fn msg(&self) -> String {
         match self {
             Self::IOError(e) => format!("IO error: {}", e),
+            Self::CryptoError(e) => format!("Crypto error: {}", e),
             Self::DuplicateIncludeName(name) => format!("Duplicate include path name: {}", name),
+            Self::FileAlreadyExists(path) => format!("File already exists: {} ", path.display()),
         }
     }
 }
@@ -29,6 +35,18 @@ impl From<io::Error> for BackupError {
     fn from(e: io::Error) -> Self {
         Self::IOError(e)
     }
+}
+
+impl From<aes_gcm::Error> for BackupError {
+    fn from(e: aes_gcm::Error) -> Self {
+        Self::CryptoError(e)
+    }
+}
+
+fn password_to_key(password: &str) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(password);
+    (&hasher.finalize()[..32]).try_into().unwrap()
 }
 
 fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
@@ -68,6 +86,14 @@ fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), 
     Ok(())
 }
 
+fn validate_file_does_not_exist(path: &Path) -> Result<(), BackupError> {
+    if path.exists() {
+        Err(BackupError::FileAlreadyExists(path.to_path_buf()))
+    } else {
+        Ok(())
+    }
+}
+
 fn append_to_archive<T: io::Write>(
     archive: &mut tar::Builder<T>,
     include_path: &Path,
@@ -97,18 +123,36 @@ fn append_to_archive<T: io::Write>(
     Ok(())
 }
 
+/// Back up and encrypt a set of paths.
+///
+/// include_paths: a list of paths to back up.
+/// exclude_globs: a list of globs to exclude from the backup.
+/// output_dir: the directory in which to save the backup.
+/// name: the name of the backup.
+/// password: the password used to encrypt the backup.
+///
+/// Returns a result containing the path to the encrypted backup, or the error variant if an error occurred while performing the backup.
 pub fn backup(
     include_paths: &[PathBuf],
     exclude_globs: &[Pattern],
     output_dir: &Path,
     name: &str,
+    password: &str,
 ) -> Result<PathBuf, BackupError> {
+    // Make sure there are no include directories with the same name
     validate_no_duplicate_include_names(include_paths)?;
 
+    // Make sure tar and output files do not already exist
     let tar_path = output_dir.join(format!("{}.tar", name));
-    let file = File::create(&tar_path)?;
-    let mut archive = tar::Builder::new(file);
+    let encrypted_path = output_dir.join(format!("{}.backup", name));
+    validate_file_does_not_exist(&tar_path)?;
+    validate_file_does_not_exist(&encrypted_path)?;
 
+    // Create the tar archive
+    let tar_file = File::create(&tar_path)?;
+    let mut archive = tar::Builder::new(tar_file);
+
+    // Add each include path to the archive
     for include_path in include_paths {
         let include_name = last_path_component(include_path).unwrap();
 
@@ -120,14 +164,33 @@ pub fn backup(
         )?;
     }
 
+    // Close the archive
     archive.finish()?;
 
-    // TODO: encrypt tar file
-    // TODO: delete tar file
+    // Turn the password into a 256-bit key used for encryption
+    let key = password_to_key(&password);
 
-    Ok(tar_path) // TODO: return encrypted file path
+    // Read and encrypt the tar archive
+    let tar_data = fs::read(&tar_path)?;
+    let encrypted_data = crypto::aes_encrypt(&key, &tar_data)?;
+
+    // Write the encrypted data to the output file and delete the tar archive
+    fs::write(&encrypted_path, encrypted_data)?;
+    fs::remove_file(&tar_path)?;
+
+    // Return the output file path
+    Ok(encrypted_path)
 }
 
-pub fn extract(path: &Path) -> Result<PathBuf, BackupError> {
+/// Extract an encrypted backup.
+///
+/// path: the path to the encrypted backup.
+/// password: the password used to decrypt the backup.
+///
+/// Returns a result containing the path to the extracted backup, or the error variant if an error occurred while performing the extraction.
+pub fn extract(path: &Path, password: &str) -> Result<PathBuf, BackupError> {
+    // TODO: decrypt file
+    // TODO: extract tar file to directory
+
     todo!()
 }

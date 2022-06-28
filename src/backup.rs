@@ -12,7 +12,7 @@ pub enum BackupError {
     IOError(io::Error),
     CryptoError(aes_gcm::Error),
     DuplicateIncludeName(String),
-    FileAlreadyExists(PathBuf),
+    PathAlreadyExists(PathBuf),
 }
 
 impl BackupError {
@@ -21,7 +21,7 @@ impl BackupError {
             Self::IOError(e) => format!("IO error: {}", e),
             Self::CryptoError(e) => format!("Crypto error: {}", e),
             Self::DuplicateIncludeName(name) => format!("Duplicate include path name: {}", name),
-            Self::FileAlreadyExists(path) => format!("File already exists: {} ", path.display()),
+            Self::PathAlreadyExists(path) => format!("Path already exists: {} ", path.display()),
         }
     }
 }
@@ -113,14 +113,14 @@ fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), 
     Ok(())
 }
 
-/// Check that a file does not already exist.
+/// Check that a path does not already exist.
 ///
-/// path: the path to the file.
+/// path: the path.
 ///
 /// Returns a result of the error variant if the path already exists.
-fn validate_file_does_not_exist(path: &Path) -> Result<(), BackupError> {
+fn validate_path_does_not_exist(path: &Path) -> Result<(), BackupError> {
     if path.exists() {
-        Err(BackupError::FileAlreadyExists(path.to_path_buf()))
+        Err(BackupError::PathAlreadyExists(path.to_path_buf()))
     } else {
         Ok(())
     }
@@ -189,8 +189,8 @@ pub fn backup(
     // Make sure tar and output files do not already exist
     let tar_path = output_dir.join(format!("{}.tar", name));
     let encrypted_path = output_dir.join(format!("{}.backup", name));
-    validate_file_does_not_exist(&tar_path)?;
-    validate_file_does_not_exist(&encrypted_path)?;
+    validate_path_does_not_exist(&tar_path)?;
+    validate_path_does_not_exist(&encrypted_path)?;
 
     // Create the tar archive
     let tar_file = File::create(&tar_path)?;
@@ -218,7 +218,7 @@ pub fn backup(
     let tar_data = fs::read(&tar_path)?;
     let encrypted_data = crypto::aes_encrypt(&key, &tar_data)?;
 
-    // Write the encrypted data to the output file and delete the tar archive
+    // Write the encrypted data to the output file and delete the temporary tar archive
     fs::write(&encrypted_path, encrypted_data)?;
     fs::remove_file(&tar_path)?;
 
@@ -233,8 +233,37 @@ pub fn backup(
 ///
 /// Returns a result containing the path to the extracted backup, or the error variant if an error occurred while performing the extraction.
 pub fn extract(path: &Path, password: &str) -> Result<PathBuf, BackupError> {
-    // TODO: decrypt file
-    // TODO: extract tar file to directory
+    // Make sure tar file and output directory do not already exist
+    let parent_dir = path.parent().unwrap();
+    let path_name = PathBuf::from(last_path_component(&path).unwrap())
+        .file_stem()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let tar_path = parent_dir.join(format!("{}.tar", path_name));
+    let output_dir = parent_dir.join(path_name);
+    validate_path_does_not_exist(&tar_path)?;
+    validate_path_does_not_exist(&output_dir)?;
 
-    todo!()
+    // Turn the password into a 256-bit key used for encryption
+    let key = password_to_key(&password);
+
+    // Read and decrypt the file
+    let encrypted_data = fs::read(&path)?;
+    let tar_data = crypto::aes_decrypt(&key, &encrypted_data)?;
+
+    // Write the decrypted data to the tar file
+    fs::write(&tar_path, tar_data)?;
+
+    // Extract the tar file
+    let tar_file = File::open(&tar_path)?;
+    let mut archive = tar::Archive::new(tar_file);
+    archive.unpack(&output_dir)?;
+
+    // Delete the temporary tar archive
+    fs::remove_file(&tar_path)?;
+
+    // Return the output directory path
+    Ok(output_dir)
 }

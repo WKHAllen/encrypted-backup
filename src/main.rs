@@ -10,7 +10,7 @@ enum Commands {
     /// Backs up and encrypts files and directories
     Backup {
         /// Comma-separated paths to include in the backup
-        #[clap(short, long, required = true, multiple_values = true, value_delimiter = ',', value_parser = validate_path)]
+        #[clap(required = true, multiple_values = true, value_delimiter = ',', value_parser = validate_path)]
         include_paths: Vec<PathBuf>,
         /// Comma-separated globs to exclude from the backup
         #[clap(short, long, multiple_values = true, value_delimiter = ',', value_parser = validate_glob)]

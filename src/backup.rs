@@ -1,5 +1,6 @@
 use super::crypto;
 use glob::Pattern;
+use log::info;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fmt;
@@ -185,12 +186,16 @@ pub fn backup(
     name: &str,
     password: &str,
 ) -> Result<PathBuf, BackupError> {
+    info!("Validating backup");
+
     // Make sure there are no include directories with the same name
     validate_no_duplicate_include_names(include_paths)?;
 
     // Make sure output file does not already exist
     let encrypted_path = output_dir.join(format!("{}.backup", name));
     validate_path_does_not_exist(&encrypted_path)?;
+
+    info!("Beginning backup");
 
     // Create the tar archive
     let tar_file = NamedTempFile::new()?;
@@ -199,6 +204,8 @@ pub fn backup(
 
     // Add each include path to the archive
     for include_path in include_paths {
+        info!("Backing up '{}'", include_path.display());
+
         let include_name = last_path_component(include_path).unwrap();
 
         append_to_archive(
@@ -212,6 +219,8 @@ pub fn backup(
     // Close the archive
     archive.finish()?;
 
+    info!("Encrypting backup");
+
     // Turn the password into a 256-bit key used for encryption
     let key = password_to_key(&password);
 
@@ -221,6 +230,8 @@ pub fn backup(
 
     // Write the encrypted data to the output file
     fs::write(&encrypted_path, encrypted_data)?;
+
+    info!("Backup complete");
 
     // Return the output file path
     Ok(encrypted_path)
@@ -238,6 +249,8 @@ pub fn extract(
     output_path: Option<PathBuf>,
     password: &str,
 ) -> Result<PathBuf, BackupError> {
+    info!("Validating extraction");
+
     // Make sure output directory does not already exist
     let parent_dir = path.parent().unwrap();
     let path_name = PathBuf::from(last_path_component(&path).unwrap())
@@ -248,6 +261,8 @@ pub fn extract(
         .to_owned();
     let output_dir = output_path.unwrap_or(parent_dir.join(path_name));
     validate_path_does_not_exist(&output_dir)?;
+
+    info!("Decrypting backup");
 
     // Turn the password into a 256-bit key used for encryption
     let key = password_to_key(&password);
@@ -261,9 +276,13 @@ pub fn extract(
     tar_file.write_all(&tar_data)?;
     tar_file.seek(SeekFrom::Start(0)).unwrap();
 
+    info!("Extracting decrypted backup");
+
     // Extract the tar file
     let mut archive = tar::Archive::new(tar_file);
     archive.unpack(&output_dir)?;
+
+    info!("Extraction complete");
 
     // Return the output directory path
     Ok(output_dir)

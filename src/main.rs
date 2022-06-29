@@ -1,5 +1,6 @@
 mod backup;
 mod crypto;
+mod logger;
 
 use clap::{Parser, Subcommand};
 use glob::Pattern;
@@ -24,6 +25,9 @@ enum Commands {
         /// Password for the backup file
         #[clap(short, long, required = true, value_parser = validate_password)]
         password: String,
+        /// Debug mode
+        #[clap(short, long, value_parser, default_value_t = false)]
+        debug: bool,
     },
     /// Decrypts and extracts an encrypted backup
     Extract {
@@ -36,6 +40,9 @@ enum Commands {
         /// Password for the backup file
         #[clap(short, long, required = true, value_parser = validate_password)]
         password: String,
+        /// Debug mode
+        #[clap(short, long, value_parser, default_value_t = false)]
+        debug: bool,
     },
 }
 
@@ -134,23 +141,33 @@ fn main() {
             output_dir,
             name,
             password,
-        } => match backup::backup(
-            &include_paths,
-            &exclude_globs,
-            &output_dir,
-            &name,
-            &password,
-        ) {
-            Ok(path) => println!("Successfully backed up to {}", path.display()),
-            Err(e) => println!("Failed to perform backup: {}", e),
-        },
+            debug,
+        } => {
+            logger::init(debug).unwrap();
+
+            match backup::backup(
+                &include_paths,
+                &exclude_globs,
+                &output_dir,
+                &name,
+                &password,
+            ) {
+                Ok(path) => println!("Successfully backed up to {}", path.display()),
+                Err(e) => println!("Failed to perform backup: {}", e),
+            }
+        }
         Commands::Extract {
             backup_path,
             output_path,
             password,
-        } => match backup::extract(&backup_path, output_path, &password) {
-            Ok(path) => println!("Successfully extracted to {}", path.display()),
-            Err(e) => println!("Failed to perform extration: {}", e),
-        },
+            debug,
+        } => {
+            logger::init(debug).unwrap();
+
+            match backup::extract(&backup_path, output_path, &password) {
+                Ok(path) => println!("Successfully extracted to {}", path.display()),
+                Err(e) => println!("Failed to perform extration: {}", e),
+            }
+        }
     }
 }

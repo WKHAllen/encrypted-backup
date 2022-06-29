@@ -229,10 +229,15 @@ pub fn backup(
 /// Extract an encrypted backup.
 ///
 /// path: the path to the encrypted backup.
+/// output_path: the path to extract the backup into.
 /// password: the password used to decrypt the backup.
 ///
 /// Returns a result containing the path to the extracted backup, or the error variant if an error occurred while performing the extraction.
-pub fn extract(path: &Path, password: &str) -> Result<PathBuf, BackupError> {
+pub fn extract(
+    path: &Path,
+    output_path: Option<PathBuf>,
+    password: &str,
+) -> Result<PathBuf, BackupError> {
     // Make sure output directory does not already exist
     let parent_dir = path.parent().unwrap();
     let path_name = PathBuf::from(last_path_component(&path).unwrap())
@@ -241,7 +246,7 @@ pub fn extract(path: &Path, password: &str) -> Result<PathBuf, BackupError> {
         .to_str()
         .unwrap()
         .to_owned();
-    let output_dir = parent_dir.join(path_name);
+    let output_dir = output_path.unwrap_or(parent_dir.join(path_name));
     validate_path_does_not_exist(&output_dir)?;
 
     // Turn the password into a 256-bit key used for encryption
@@ -251,7 +256,7 @@ pub fn extract(path: &Path, password: &str) -> Result<PathBuf, BackupError> {
     let encrypted_data = fs::read(&path)?;
     let tar_data = crypto::aes_decrypt(&key, &encrypted_data)?;
 
-    // Write the decrypted data to the tar file
+    // Write the decrypted data to the tar file and seek to the beginning of the file
     let mut tar_file = tempfile::tempfile()?;
     tar_file.write_all(&tar_data)?;
     tar_file.seek(SeekFrom::Start(0)).unwrap();

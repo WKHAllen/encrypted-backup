@@ -19,7 +19,7 @@ enum Commands {
         #[clap(short, long, required = true, value_parser = validate_dir)]
         output_dir: PathBuf,
         /// Name of the backup file
-        #[clap(short, long, value_parser)]
+        #[clap(short, long, required = true, value_parser)]
         name: String,
         /// Password for the backup file
         #[clap(short, long, required = true, value_parser = validate_password)]
@@ -30,6 +30,9 @@ enum Commands {
         /// Path to the encrypted backup
         #[clap(required = true, value_parser = validate_file)]
         backup_path: PathBuf,
+        /// Path to extract the backup into
+        #[clap(short, long, value_parser = validate_extract_output_path)]
+        output_path: Option<PathBuf>,
         /// Password for the backup file
         #[clap(short, long, required = true, value_parser = validate_password)]
         password: String,
@@ -102,6 +105,25 @@ fn validate_password(password: &str) -> Result<String, String> {
     }
 }
 
+fn validate_extract_output_path(path_str: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(path_str);
+
+    match path.parent() {
+        Some(parent) => {
+            if parent.exists() {
+                if !path.exists() {
+                    Ok(path)
+                } else {
+                    Err(format!("Path already exists: {}", path.display()))
+                }
+            } else {
+                Err(format!("Parent path does not exist: {}", path.display()))
+            }
+        }
+        None => Err(format!("Could not get parent path: {}", path.display())),
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -124,8 +146,9 @@ fn main() {
         },
         Commands::Extract {
             backup_path,
+            output_path,
             password,
-        } => match backup::extract(&backup_path, &password) {
+        } => match backup::extract(&backup_path, output_path, &password) {
             Ok(path) => println!("Successfully extracted to {}", path.display()),
             Err(e) => println!("Failed to perform extration: {}", e),
         },

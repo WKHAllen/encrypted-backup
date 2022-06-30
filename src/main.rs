@@ -10,18 +10,15 @@ use std::path::PathBuf;
 enum Commands {
     /// Backs up and encrypts files and directories
     Backup {
-        /// Comma-separated paths to include in the backup
-        #[clap(required = true, multiple_values = true, value_delimiter = ',', value_parser = validate_path)]
+        /// Paths to include in the backup
+        #[clap(required = true, multiple_values = true, value_parser = validate_path)]
         include_paths: Vec<PathBuf>,
         /// Comma-separated globs to exclude from the backup
         #[clap(short, long, multiple_values = true, value_delimiter = ',', value_parser = validate_glob)]
         exclude_globs: Vec<Pattern>,
-        /// Directory to save the backup to
-        #[clap(short, long, required = true, value_parser = validate_dir)]
-        output_dir: PathBuf,
-        /// Name of the backup file
-        #[clap(short, long, required = true, value_parser)]
-        name: String,
+        /// Path to save the backup to
+        #[clap(short, long, required = true, value_parser = validate_output_path)]
+        output_path: PathBuf,
         /// Password for the backup file
         #[clap(short, long, required = true, value_parser = validate_password)]
         password: String,
@@ -34,9 +31,9 @@ enum Commands {
         /// Path to the encrypted backup
         #[clap(required = true, value_parser = validate_file)]
         backup_path: PathBuf,
-        /// Path to extract the backup into
-        #[clap(short, long, value_parser = validate_extract_output_path)]
-        output_path: Option<PathBuf>,
+        /// Path to extract the backup to
+        #[clap(short, long, value_parser = validate_output_path)]
+        output_path: PathBuf,
         /// Password for the backup file
         #[clap(short, long, required = true, value_parser = validate_password)]
         password: String,
@@ -61,18 +58,6 @@ fn validate_file(path_str: &str) -> Result<PathBuf, String> {
         Err(format!("Path does not exist: {}", path_str))
     } else if !path.is_file() {
         Err(format!("Path is not a file: {}", path_str))
-    } else {
-        Ok(path)
-    }
-}
-
-fn validate_dir(path_str: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(path_str);
-
-    if !path.exists() {
-        Err(format!("Path does not exist: {}", path_str))
-    } else if !path.is_dir() {
-        Err(format!("Path is not a directory: {}", path_str))
     } else {
         Ok(path)
     }
@@ -112,7 +97,7 @@ fn validate_password(password: &str) -> Result<String, String> {
     }
 }
 
-fn validate_extract_output_path(path_str: &str) -> Result<PathBuf, String> {
+fn validate_output_path(path_str: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(path_str);
 
     match path.parent() {
@@ -138,20 +123,13 @@ fn main() {
         Commands::Backup {
             include_paths,
             exclude_globs,
-            output_dir,
-            name,
+            output_path,
             password,
             debug,
         } => {
             logger::init(debug).unwrap();
 
-            match backup::backup(
-                &include_paths,
-                &exclude_globs,
-                &output_dir,
-                &name,
-                &password,
-            ) {
+            match backup::backup(&include_paths, &exclude_globs, &output_path, &password) {
                 Ok(path) => println!("Successfully backed up to {}", path.display()),
                 Err(e) => println!("Failed to perform backup: {}", e),
             }
@@ -164,7 +142,7 @@ fn main() {
         } => {
             logger::init(debug).unwrap();
 
-            match backup::extract(&backup_path, output_path, &password) {
+            match backup::extract(&backup_path, &output_path, &password) {
                 Ok(path) => println!("Successfully extracted to {}", path.display()),
                 Err(e) => println!("Failed to perform extration: {}", e),
             }

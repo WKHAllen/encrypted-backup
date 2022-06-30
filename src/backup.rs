@@ -47,6 +47,23 @@ impl From<aes_gcm::Error> for BackupError {
     }
 }
 
+#[allow(dead_code)]
+enum PathType {
+    File,
+    Directory,
+    Any,
+}
+
+impl fmt::Display for PathType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::File => "file",
+            Self::Directory => "directory",
+            Self::Any => "file or directory",
+        })
+    }
+}
+
 /// Turn a password into a 256-bit key.
 ///
 /// password: the password.
@@ -119,11 +136,28 @@ fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), 
 /// Check that a path does not already exist.
 ///
 /// path: the path.
+/// path_type: the type of path to check.
 ///
 /// Returns a result of the error variant if the path already exists.
-fn validate_path_does_not_exist(path: &Path) -> Result<(), BackupError> {
+fn validate_path_does_not_exist(path: &Path, path_type: PathType) -> Result<(), BackupError> {
     if path.exists() {
-        Err(BackupError::PathAlreadyExists(path.to_path_buf()))
+        match path_type {
+            PathType::File => {
+                if path.is_file() {
+                    Err(BackupError::PathAlreadyExists(path.to_path_buf()))
+                } else {
+                    Ok(())
+                }
+            }
+            PathType::Directory => {
+                if path.is_dir() {
+                    Err(BackupError::PathAlreadyExists(path.to_path_buf()))
+                } else {
+                    Ok(())
+                }
+            }
+            PathType::Any => Err(BackupError::PathAlreadyExists(path.to_path_buf())),
+        }
     } else {
         Ok(())
     }
@@ -143,27 +177,22 @@ fn append_to_archive<T: io::Write>(
     exclude_globs: &[Pattern],
     relative_path: &Path,
 ) -> io::Result<()> {
-    // Read the list of entries in the directory
-    let entries = fs::read_dir(&include_path)?;
+    if !glob_excluded(&relative_path, &exclude_globs) {
+        if include_path.is_dir() {
+            // Read the list of entries in the directory
+            let entries = fs::read_dir(&include_path)?;
 
-    // Iterate over all entries that did not throw errors
-    for entry in entries.into_iter().filter_map(|e| e.ok()) {
-        if entry.file_type().unwrap().is_dir() {
-            let entry_path = include_path.join(entry.file_name().to_str().unwrap());
-            let entry_relative_path = relative_path.join(entry.file_name().to_str().unwrap());
+            // Iterate over all entries that did not throw errors
+            for entry in entries.into_iter().filter_map(|e| e.ok()) {
+                let entry_path = include_path.join(entry.file_name().to_str().unwrap());
+                let entry_relative_path = relative_path.join(entry.file_name().to_str().unwrap());
 
-            if !glob_excluded(&entry_path, &exclude_globs) {
                 // Recursively call this function for the current directory entry to add all of its contents to the archive
                 append_to_archive(archive, &entry_path, exclude_globs, &entry_relative_path)?;
             }
-        } else if entry.file_type().unwrap().is_file() {
-            let entry_path = include_path.join(entry.file_name().to_str().unwrap());
-            let entry_relative_path = relative_path.join(entry.file_name().to_str().unwrap());
-
-            if !glob_excluded(&entry_path, &exclude_globs) {
-                // Add the current file entry to the archive
-                archive.append_path_with_name(entry_path, entry_relative_path)?;
-            }
+        } else if include_path.is_file() {
+            // Add the current file entry to the archive
+            archive.append_path_with_name(include_path, relative_path)?;
         }
     }
 
@@ -174,16 +203,14 @@ fn append_to_archive<T: io::Write>(
 ///
 /// include_paths: the list of paths to back up.
 /// exclude_globs: the list of globs to exclude from the backup.
-/// output_dir: the directory in which to save the backup.
-/// name: the name of the backup.
+/// output_path: the path to save the backup to.
 /// password: the password used to encrypt the backup.
 ///
 /// Returns a result containing the path to the encrypted backup, or the error variant if an error occurred while performing the backup.
 pub fn backup(
     include_paths: &[PathBuf],
     exclude_globs: &[Pattern],
-    output_dir: &Path,
-    name: &str,
+    output_path: &Path,
     password: &str,
 ) -> Result<PathBuf, BackupError> {
     info!("Validating backup");
@@ -192,8 +219,7 @@ pub fn backup(
     validate_no_duplicate_include_names(include_paths)?;
 
     // Make sure output file does not already exist
-    let encrypted_path = output_dir.join(format!("{}.backup", name));
-    validate_path_does_not_exist(&encrypted_path)?;
+    validate_path_does_not_exist(&output_path, PathType::Any)?;
 
     info!("Beginning backup");
 
@@ -229,38 +255,26 @@ pub fn backup(
     let encrypted_data = crypto::aes_encrypt(&key, &tar_data)?;
 
     // Write the encrypted data to the output file
-    fs::write(&encrypted_path, encrypted_data)?;
+    fs::write(&output_path, encrypted_data)?;
 
     info!("Backup complete");
 
     // Return the output file path
-    Ok(encrypted_path)
+    Ok(output_path.to_path_buf())
 }
 
 /// Extract an encrypted backup.
 ///
 /// path: the path to the encrypted backup.
-/// output_path: the path to extract the backup into.
+/// output_path: the path to extract the backup to.
 /// password: the password used to decrypt the backup.
 ///
 /// Returns a result containing the path to the extracted backup, or the error variant if an error occurred while performing the extraction.
-pub fn extract(
-    path: &Path,
-    output_path: Option<PathBuf>,
-    password: &str,
-) -> Result<PathBuf, BackupError> {
+pub fn extract(path: &Path, output_path: &Path, password: &str) -> Result<PathBuf, BackupError> {
     info!("Validating extraction");
 
     // Make sure output directory does not already exist
-    let parent_dir = path.parent().unwrap();
-    let path_name = PathBuf::from(last_path_component(&path).unwrap())
-        .file_stem()
-        .unwrap()
-        .to_str()
-        .unwrap()
-        .to_owned();
-    let output_dir = output_path.unwrap_or(parent_dir.join(path_name));
-    validate_path_does_not_exist(&output_dir)?;
+    validate_path_does_not_exist(&output_path, PathType::Any)?;
 
     info!("Decrypting backup");
 
@@ -280,10 +294,10 @@ pub fn extract(
 
     // Extract the tar file
     let mut archive = tar::Archive::new(tar_file);
-    archive.unpack(&output_dir)?;
+    archive.unpack(&output_path)?;
 
     info!("Extraction complete");
 
     // Return the output directory path
-    Ok(output_dir)
+    Ok(output_path.to_path_buf())
 }

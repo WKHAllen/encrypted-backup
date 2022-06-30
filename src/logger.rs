@@ -11,7 +11,7 @@ impl log::Log for BackupLogger {
         if self.enabled(record.metadata()) {
             println!(
                 "[{}] {}",
-                chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                chrono::Local::now().format("%a %Y-%m-%d %H:%M:%S%.3f"),
                 record.args()
             );
         }

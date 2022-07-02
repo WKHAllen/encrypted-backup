@@ -116,6 +116,29 @@ fn validate_output_path(path_str: &str) -> Result<PathBuf, String> {
     }
 }
 
+fn get_password(password: Option<String>, confirm: bool, validate: bool) -> Result<String, String> {
+    match password {
+        Some(pw) => Ok(pw),
+        None => {
+            let pw = rpassword::prompt_password("Backup password: ").unwrap();
+
+            if confirm {
+                let pw_confirm = rpassword::prompt_password("Confirm password: ").unwrap();
+
+                if pw != pw_confirm {
+                    return Err("Passwords do not match".to_owned());
+                }
+            }
+
+            if validate {
+                validate_password(&pw)
+            } else {
+                Ok(pw)
+            }
+        }
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -129,11 +152,8 @@ fn main() {
         } => {
             logger::init(debug).unwrap();
 
-            let pw = password
-                .unwrap_or_else(|| rpassword::prompt_password("Backup password: ").unwrap());
-
-            match validate_password(&pw) {
-                Ok(p) => match backup::backup(&include_paths, &exclude_globs, &output_path, &p) {
+            match get_password(password, true, true) {
+                Ok(pw) => match backup::backup(&include_paths, &exclude_globs, &output_path, &pw) {
                     Ok(path) => println!("Successfully backed up to {}", path.display()),
                     Err(e) => println!("Failed to perform backup: {}", e),
                 },
@@ -148,19 +168,19 @@ fn main() {
         } => {
             logger::init(debug).unwrap();
 
-            let pw = password
-                .unwrap_or_else(|| rpassword::prompt_password("Backup password: ").unwrap());
+            match get_password(password, false, false) {
+                Ok(pw) => match backup::extract(&backup_path, &output_path, &pw) {
+                    Ok(path) => println!("Successfully extracted to {}", path.display()),
+                    Err(e) => {
+                        println!("Failed to perform extration: {}", e);
 
-            match backup::extract(&backup_path, &output_path, &pw) {
-                Ok(path) => println!("Successfully extracted to {}", path.display()),
-                Err(e) => {
-                    println!("Failed to perform extration: {}", e);
-
-                    match e {
-                        backup::BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),
-                        _ => (),
+                        match e {
+                            backup::BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),
+                            _ => (),
+                        }
                     }
-                }
+                },
+                Err(e) => println!("Invalid password: {}", e),
             }
         }
     }

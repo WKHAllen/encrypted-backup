@@ -153,7 +153,14 @@ fn main() {
 
             match backup::extract(&backup_path, &output_path, &pw) {
                 Ok(path) => println!("Successfully extracted to {}", path.display()),
-                Err(e) => println!("Failed to perform extration: {}", e),
+                Err(e) => {
+                    println!("Failed to perform extration: {}", e);
+
+                    match e {
+                        backup::BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),
+                        _ => (),
+                    }
+                }
             }
         }
     }

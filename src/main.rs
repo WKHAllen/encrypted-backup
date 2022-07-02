@@ -20,8 +20,8 @@ enum Commands {
         #[clap(short, long, required = true, value_parser = validate_output_path)]
         output_path: PathBuf,
         /// Password for the backup file
-        #[clap(short, long, required = true, value_parser = validate_password)]
-        password: String,
+        #[clap(short, long, value_parser = validate_password)]
+        password: Option<String>,
         /// Debug mode
         #[clap(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -35,8 +35,8 @@ enum Commands {
         #[clap(short, long, value_parser = validate_output_path)]
         output_path: PathBuf,
         /// Password for the backup file
-        #[clap(short, long, required = true, value_parser = validate_password)]
-        password: String,
+        #[clap(short, long, value_parser)]
+        password: Option<String>,
         /// Debug mode
         #[clap(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -129,9 +129,15 @@ fn main() {
         } => {
             logger::init(debug).unwrap();
 
-            match backup::backup(&include_paths, &exclude_globs, &output_path, &password) {
-                Ok(path) => println!("Successfully backed up to {}", path.display()),
-                Err(e) => println!("Failed to perform backup: {}", e),
+            let pw = password
+                .unwrap_or_else(|| rpassword::prompt_password("Backup password: ").unwrap());
+
+            match validate_password(&pw) {
+                Ok(p) => match backup::backup(&include_paths, &exclude_globs, &output_path, &p) {
+                    Ok(path) => println!("Successfully backed up to {}", path.display()),
+                    Err(e) => println!("Failed to perform backup: {}", e),
+                },
+                Err(e) => println!("Invalid password: {}", e),
             }
         }
         Commands::Extract {
@@ -142,7 +148,10 @@ fn main() {
         } => {
             logger::init(debug).unwrap();
 
-            match backup::extract(&backup_path, &output_path, &password) {
+            let pw = password
+                .unwrap_or_else(|| rpassword::prompt_password("Backup password: ").unwrap());
+
+            match backup::extract(&backup_path, &output_path, &pw) {
                 Ok(path) => println!("Successfully extracted to {}", path.display()),
                 Err(e) => println!("Failed to perform extration: {}", e),
             }

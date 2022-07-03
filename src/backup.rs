@@ -180,7 +180,11 @@ fn append_to_archive<T: io::Write>(
     if !glob_excluded(&relative_path, &exclude_globs) {
         if include_path.is_dir() {
             // Read the list of entries in the directory
-            let entries = fs::read_dir(&include_path)?;
+            let entries = match fs::read_dir(&include_path) {
+                Ok(val) => Ok(val),
+                Err(e) if e.kind() == io::ErrorKind::PermissionDenied => return Ok(()),
+                Err(e) => Err(e),
+            }?;
 
             // Iterate over all entries that did not throw errors
             for entry in entries.into_iter().filter_map(|e| e.ok()) {
@@ -192,7 +196,11 @@ fn append_to_archive<T: io::Write>(
             }
         } else if include_path.is_file() {
             // Add the current file entry to the archive
-            archive.append_path_with_name(include_path, relative_path)?;
+            match archive.append_path_with_name(include_path, relative_path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == io::ErrorKind::PermissionDenied => return Ok(()),
+                Err(e) => Err(e),
+            }?;
         }
     }
 

@@ -1,7 +1,10 @@
 mod backup;
+mod backup_crypto;
 mod crypto;
 mod logger;
+mod types;
 
+use crate::types::*;
 use clap::{Parser, Subcommand};
 use glob::Pattern;
 use std::path::PathBuf;
@@ -175,7 +178,7 @@ fn main() {
                         println!("Failed to perform extration: {}", e);
 
                         match e {
-                            backup::BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),
+                            BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),
                             _ => (),
                         }
                     }

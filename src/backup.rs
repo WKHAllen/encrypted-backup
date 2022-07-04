@@ -1,72 +1,18 @@
-use super::crypto;
+use crate::backup_crypto::*;
+use crate::types::*;
 use glob::Pattern;
 use log::info;
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
-use std::fmt;
 use std::fs;
-use std::io::{self, Seek, SeekFrom, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::NamedTempFile;
 
-/// An error during a backup or extraction.
-pub enum BackupError {
-    IOError(io::Error),
-    CryptoError(aes_gcm::Error),
-    DuplicateIncludeName(String),
-    PathAlreadyExists(PathBuf),
-}
-
-impl BackupError {
-    pub fn msg(&self) -> String {
-        match self {
-            Self::IOError(e) => format!("IO error: {}", e),
-            Self::CryptoError(e) => format!("Crypto error: {}", e),
-            Self::DuplicateIncludeName(name) => format!("Duplicate include path name: {}", name),
-            Self::PathAlreadyExists(path) => format!("Path already exists: {} ", path.display()),
-        }
-    }
-}
-
-impl fmt::Display for BackupError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.msg().as_str())
-    }
-}
-
-impl From<io::Error> for BackupError {
-    fn from(e: io::Error) -> Self {
-        Self::IOError(e)
-    }
-}
-
-impl From<aes_gcm::Error> for BackupError {
-    fn from(e: aes_gcm::Error) -> Self {
-        Self::CryptoError(e)
-    }
-}
-
-#[allow(dead_code)]
-enum PathType {
-    File,
-    Directory,
-    Any,
-}
-
-impl fmt::Display for PathType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::File => "file",
-            Self::Directory => "directory",
-            Self::Any => "file or directory",
-        })
-    }
-}
-
 /// Turn a password into a 256-bit key.
 ///
-/// password: the password.
+/// `password`: the password.
 ///
 /// Returns the key generated from the hash of the password.
 fn password_to_key(password: &str) -> [u8; 32] {
@@ -77,8 +23,8 @@ fn password_to_key(password: &str) -> [u8; 32] {
 
 /// Check if a path is excluded based on a list of globs.
 ///
-/// path: the path.
-/// exclude_globs: the list of globs.
+/// `path`: the path.
+/// `exclude_globs`: the list of globs.
 ///
 /// Returns whether the path is excluded by one or more of the globs.
 fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
@@ -93,7 +39,7 @@ fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
 
 /// Get the last component of a path.
 ///
-/// path: the path.
+/// `path`: the path.
 ///
 /// Returns an option containing the last component of the path, or None if the path is empty.
 fn last_path_component(path: &Path) -> Option<String> {
@@ -109,10 +55,10 @@ fn last_path_component(path: &Path) -> Option<String> {
 
 /// Check that there are no duplicate names in the paths included in a backup.
 ///
-/// include_paths: the list of paths to be included in the backup.
+/// `include_paths`: the list of paths to be included in the backup.
 ///
 /// Returns a result of the error variant if a duplicate include name was found.
-fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), BackupError> {
+fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> BackupResult<()> {
     // Use a HashSet for quick lookups
     let mut include_set = HashSet::new();
 
@@ -135,11 +81,11 @@ fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> Result<(), 
 
 /// Check that a path does not already exist.
 ///
-/// path: the path.
-/// path_type: the type of path to check.
+/// `path`: the path.
+/// `path_type`: the type of path to check.
 ///
 /// Returns a result of the error variant if the path already exists.
-fn validate_path_does_not_exist(path: &Path, path_type: PathType) -> Result<(), BackupError> {
+fn validate_path_does_not_exist(path: &Path, path_type: PathType) -> BackupResult<()> {
     if path.exists() {
         match path_type {
             PathType::File => {
@@ -165,10 +111,10 @@ fn validate_path_does_not_exist(path: &Path, path_type: PathType) -> Result<(), 
 
 /// Append files to a tar archive recursively.
 ///
-/// archive: a mutable reference to the tar archive.
-/// include_path: the path to the directory to be included in the archive.
-/// exclude_globs: the list of globs to exclude from the archive.
-/// relative_path: the relative path from the root of the archive.
+/// `archive`: a mutable reference to the tar archive.
+/// `include_path`: the path to the directory to be included in the archive.
+/// `exclude_globs`: the list of globs to exclude from the archive.
+/// `relative_path`: the relative path from the root of the archive.
 ///
 /// Returns a result of the error variant if an error occurred while adding to the archive.
 fn append_to_archive<T: io::Write>(
@@ -209,10 +155,10 @@ fn append_to_archive<T: io::Write>(
 
 /// Back up and encrypt a set of paths.
 ///
-/// include_paths: the list of paths to back up.
-/// exclude_globs: the list of globs to exclude from the backup.
-/// output_path: the path to save the backup to.
-/// password: the password used to encrypt the backup.
+/// `include_paths`: the list of paths to back up.
+/// `exclude_globs`: the list of globs to exclude from the backup.
+/// `output_path`: the path to save the backup to.
+/// `password`: the password used to encrypt the backup.
 ///
 /// Returns a result containing the path to the encrypted backup, or the error variant if an error occurred while performing the backup.
 pub fn backup(
@@ -220,7 +166,7 @@ pub fn backup(
     exclude_globs: &[Pattern],
     output_path: &Path,
     password: &str,
-) -> Result<PathBuf, BackupError> {
+) -> BackupResult<PathBuf> {
     info!("Validating backup");
 
     // Make sure there are no include directories with the same name
@@ -259,11 +205,10 @@ pub fn backup(
     let key = password_to_key(&password);
 
     // Read and encrypt the tar archive
-    let tar_data = fs::read(tar_path)?;
-    let encrypted_data = crypto::aes_encrypt(&key, &tar_data)?;
+    encrypt_backup(&tar_path, &output_path, &key)?;
 
-    // Write the encrypted data to the output file
-    fs::write(&output_path, encrypted_data)?;
+    // Delete temporary tar file
+    fs::remove_file(&tar_path)?;
 
     info!("Backup complete");
 
@@ -273,12 +218,12 @@ pub fn backup(
 
 /// Extract an encrypted backup.
 ///
-/// path: the path to the encrypted backup.
-/// output_path: the path to extract the backup to.
-/// password: the password used to decrypt the backup.
+/// `path`: the path to the encrypted backup.
+/// `output_path`: the path to extract the backup to.
+/// `password`: the password used to decrypt the backup.
 ///
 /// Returns a result containing the path to the extracted backup, or the error variant if an error occurred while performing the extraction.
-pub fn extract(path: &Path, output_path: &Path, password: &str) -> Result<PathBuf, BackupError> {
+pub fn extract(path: &Path, output_path: &Path, password: &str) -> BackupResult<PathBuf> {
     info!("Validating extraction");
 
     // Make sure output directory does not already exist
@@ -289,14 +234,8 @@ pub fn extract(path: &Path, output_path: &Path, password: &str) -> Result<PathBu
     // Turn the password into a 256-bit key used for encryption
     let key = password_to_key(&password);
 
-    // Read and decrypt the file
-    let encrypted_data = fs::read(&path)?;
-    let tar_data = crypto::aes_decrypt(&key, &encrypted_data)?;
-
-    // Write the decrypted data to the tar file and seek to the beginning of the file
-    let mut tar_file = tempfile::tempfile()?;
-    tar_file.write_all(&tar_data)?;
-    tar_file.seek(SeekFrom::Start(0)).unwrap();
+    // Decrypt the backup
+    let tar_file = decrypt_backup(&path, &key)?;
 
     info!("Extracting decrypted backup");
 

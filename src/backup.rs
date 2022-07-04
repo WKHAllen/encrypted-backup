@@ -125,6 +125,13 @@ fn append_to_archive<T: io::Write>(
 ) -> io::Result<()> {
     if !glob_excluded(&relative_path, &exclude_globs) {
         if include_path.is_dir() {
+            // Append the directory itself (this is necessary because if the directory is empty, it will not be appended to the archive)
+            match archive.append_path_with_name(&include_path, &relative_path) {
+                Ok(()) => Ok(()),
+                Err(e) if e.kind() == io::ErrorKind::PermissionDenied => return Ok(()),
+                Err(e) => Err(e),
+            }?;
+
             // Read the list of entries in the directory
             let entries = match fs::read_dir(&include_path) {
                 Ok(val) => Ok(val),

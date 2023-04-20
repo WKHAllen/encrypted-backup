@@ -3,12 +3,12 @@ use std::io;
 use std::path::PathBuf;
 
 /// An error during a backup or extraction.
+#[derive(Debug)]
 pub enum BackupError {
     IOError(io::Error),
     CryptoError(aes_gcm::Error),
     DuplicateIncludeName(String),
     PathAlreadyExists(PathBuf),
-    BackupReadFailed(String),
 }
 
 impl BackupError {
@@ -18,7 +18,6 @@ impl BackupError {
             Self::CryptoError(e) => format!("Crypto error: {}", e),
             Self::DuplicateIncludeName(name) => format!("Duplicate include path name: {}", name),
             Self::PathAlreadyExists(path) => format!("Path already exists: {} ", path.display()),
-            Self::BackupReadFailed(msg) => format!("Backup read failed: {}", msg),
         }
     }
 }

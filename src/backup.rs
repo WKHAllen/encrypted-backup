@@ -1,32 +1,16 @@
 use crate::backup_crypto::*;
+use crate::crypto::*;
 use crate::types::*;
 use glob::Pattern;
 use log::info;
-use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::fs;
-use std::io;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::str;
 use tempfile::NamedTempFile;
 
-/// Turn a password into a 256-bit key.
-///
-/// `password`: the password.
-///
-/// Returns the key generated from the hash of the password.
-fn password_to_key(password: &str) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(password);
-    (&hasher.finalize()[..32]).try_into().unwrap()
-}
-
-/// Check if a path is excluded based on a list of globs.
-///
-/// `path`: the path.
-/// `exclude_globs`: the list of globs.
-///
-/// Returns whether the path is excluded by one or more of the globs.
+/// Checks if a path is excluded based on a list of globs.
 fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
     for glob in exclude_globs {
         if glob.matches_path(&path) {
@@ -37,11 +21,7 @@ fn glob_excluded(path: &Path, exclude_globs: &[Pattern]) -> bool {
     false
 }
 
-/// Get the last component of a path.
-///
-/// `path`: the path.
-///
-/// Returns an option containing the last component of the path, or None if the path is empty.
+/// Gets the last component of a path.
 fn last_path_component(path: &Path) -> Option<String> {
     Some(
         path.components()
@@ -53,11 +33,7 @@ fn last_path_component(path: &Path) -> Option<String> {
     )
 }
 
-/// Check that there are no duplicate names in the paths included in a backup.
-///
-/// `include_paths`: the list of paths to be included in the backup.
-///
-/// Returns a result of the error variant if a duplicate include name was found.
+/// Checks that there are no duplicate names in the paths included in a backup.
 fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> BackupResult<()> {
     // Use a HashSet for quick lookups
     let mut include_set = HashSet::new();
@@ -79,12 +55,7 @@ fn validate_no_duplicate_include_names(include_paths: &[PathBuf]) -> BackupResul
     Ok(())
 }
 
-/// Check that a path does not already exist.
-///
-/// `path`: the path.
-/// `path_type`: the type of path to check.
-///
-/// Returns a result of the error variant if the path already exists.
+/// Checks that a path does not already exist.
 fn validate_path_does_not_exist(path: &Path, path_type: PathType) -> BackupResult<()> {
     if path.exists() {
         match path_type {
@@ -109,15 +80,8 @@ fn validate_path_does_not_exist(path: &Path, path_type: PathType) -> BackupResul
     }
 }
 
-/// Append files to a tar archive recursively.
-///
-/// `archive`: a mutable reference to the tar archive.
-/// `include_path`: the path to the directory to be included in the archive.
-/// `exclude_globs`: the list of globs to exclude from the archive.
-/// `relative_path`: the relative path from the root of the archive.
-///
-/// Returns a result of the error variant if an error occurred while adding to the archive.
-fn append_to_archive<T: io::Write>(
+/// Appends files to a tar archive recursively.
+fn append_to_archive<T: Write>(
     archive: &mut tar::Builder<T>,
     include_path: &Path,
     exclude_globs: &[Pattern],
@@ -160,14 +124,7 @@ fn append_to_archive<T: io::Write>(
     Ok(())
 }
 
-/// Back up and encrypt a set of paths.
-///
-/// `include_paths`: the list of paths to back up.
-/// `exclude_globs`: the list of globs to exclude from the backup.
-/// `output_path`: the path to save the backup to.
-/// `password`: the password used to encrypt the backup.
-///
-/// Returns a result containing the path to the encrypted backup, or the error variant if an error occurred while performing the backup.
+/// Backs up and encrypts a set of paths.
 pub fn backup(
     include_paths: &[PathBuf],
     exclude_globs: &[Pattern],
@@ -223,13 +180,7 @@ pub fn backup(
     Ok(output_path.to_path_buf())
 }
 
-/// Extract an encrypted backup.
-///
-/// `path`: the path to the encrypted backup.
-/// `output_path`: the path to extract the backup to.
-/// `password`: the password used to decrypt the backup.
-///
-/// Returns a result containing the path to the extracted backup, or the error variant if an error occurred while performing the extraction.
+/// Extracts an encrypted backup.
 pub fn extract(path: &Path, output_path: &Path, password: &str) -> BackupResult<PathBuf> {
     info!("Validating extraction");
 
@@ -254,4 +205,11 @@ pub fn extract(path: &Path, output_path: &Path, password: &str) -> BackupResult<
 
     // Return the output directory path
     Ok(output_path.to_path_buf())
+}
+
+/// Backup tests.
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_backup() {}
 }

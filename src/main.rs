@@ -13,40 +13,40 @@ use std::path::PathBuf;
 enum Commands {
     /// Backs up and encrypts files and directories
     Backup {
-        /// Paths to include in the backup
+        /// Paths to include in the backup.
         #[clap(required = true, multiple_values = true, value_parser = validate_path)]
         include_paths: Vec<PathBuf>,
-        /// Comma-separated globs to exclude from the backup
+        /// Comma-separated globs to exclude from the backup.
         #[clap(short, long, multiple_values = true, value_delimiter = ',', value_parser = validate_glob)]
         exclude_globs: Vec<Pattern>,
-        /// Path to save the backup to
+        /// Path to save the backup to.
         #[clap(short, long, required = true, value_parser = validate_output_path)]
         output_path: PathBuf,
-        /// Password for the backup file
+        /// Password for the backup file.
         #[clap(short, long, value_parser = validate_password)]
         password: Option<String>,
-        /// Debug mode
+        /// Debug mode.
         #[clap(short, long, value_parser, default_value_t = false)]
         debug: bool,
     },
-    /// Decrypts and extracts an encrypted backup
+    /// Decrypts and extracts an encrypted backup.
     Extract {
-        /// Path to the encrypted backup
+        /// Path to the encrypted backup.
         #[clap(required = true, value_parser = validate_file)]
         backup_path: PathBuf,
-        /// Path to extract the backup to
+        /// Path to extract the backup to.
         #[clap(short, long, value_parser = validate_output_path)]
         output_path: PathBuf,
-        /// Password for the backup file
+        /// Password for the backup file.
         #[clap(short, long, value_parser)]
         password: Option<String>,
-        /// Debug mode
+        /// Debug mode.
         #[clap(short, long, value_parser, default_value_t = false)]
         debug: bool,
     },
 }
 
-/// A tool to securely back up files and directories
+/// A tool to securely back up files and directories.
 #[derive(Parser, Debug)]
 #[clap(about, long_about = None)]
 struct Cli {
@@ -175,7 +175,7 @@ fn main() {
                 Ok(pw) => match backup::extract(&backup_path, &output_path, &pw) {
                     Ok(path) => println!("Successfully extracted to {}", path.display()),
                     Err(e) => {
-                        println!("Failed to perform extration: {}", e);
+                        println!("Failed to perform extraction: {}", e);
 
                         match e {
                             BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),

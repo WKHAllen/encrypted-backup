@@ -9,49 +9,49 @@ use clap::{Parser, Subcommand};
 use glob::Pattern;
 use std::path::PathBuf;
 
+/// A tool to securely back up files and directories.
+#[derive(Parser, Debug)]
+#[command(about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Backs up and encrypts files and directories
+    /// Backs up and encrypts files and directories.
     Backup {
         /// Paths to include in the backup.
-        #[clap(required = true, multiple_values = true, value_parser = validate_path)]
+        #[arg(required = true, value_parser = validate_path)]
         include_paths: Vec<PathBuf>,
         /// Comma-separated globs to exclude from the backup.
-        #[clap(short, long, multiple_values = true, value_delimiter = ',', value_parser = validate_glob)]
+        #[arg(short, long, value_delimiter = ',', value_parser = validate_glob)]
         exclude_globs: Vec<Pattern>,
         /// Path to save the backup to.
-        #[clap(short, long, required = true, value_parser = validate_output_path)]
+        #[arg(short, long, required = true, value_parser = validate_output_path)]
         output_path: PathBuf,
         /// Password for the backup file.
-        #[clap(short, long, value_parser = validate_password)]
+        #[arg(short, long, value_parser = validate_password)]
         password: Option<String>,
         /// Debug mode.
-        #[clap(short, long, value_parser, default_value_t = false)]
+        #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
     },
     /// Decrypts and extracts an encrypted backup.
     Extract {
         /// Path to the encrypted backup.
-        #[clap(required = true, value_parser = validate_file)]
+        #[arg(required = true, value_parser = validate_file)]
         backup_path: PathBuf,
         /// Path to extract the backup to.
-        #[clap(short, long, value_parser = validate_output_path)]
+        #[arg(short, long, value_parser = validate_output_path)]
         output_path: PathBuf,
         /// Password for the backup file.
-        #[clap(short, long, value_parser)]
+        #[arg(short, long, value_parser)]
         password: Option<String>,
         /// Debug mode.
-        #[clap(short, long, value_parser, default_value_t = false)]
+        #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
     },
-}
-
-/// A tool to securely back up files and directories.
-#[derive(Parser, Debug)]
-#[clap(about, long_about = None)]
-struct Cli {
-    #[clap(subcommand)]
-    command: Commands,
 }
 
 fn validate_file(path_str: &str) -> Result<PathBuf, String> {

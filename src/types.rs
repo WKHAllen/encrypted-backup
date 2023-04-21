@@ -42,7 +42,9 @@ impl From<aes_gcm::Error> for BackupError {
 
 pub type BackupResult<T> = Result<T, BackupError>;
 
+/// A type of path.
 #[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
 pub enum PathType {
     File,
     Directory,

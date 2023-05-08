@@ -135,6 +135,7 @@ pub fn backup(
     exclude_globs: &[Pattern],
     output_path: impl AsRef<Path>,
     password: &str,
+    chunk_size: usize,
 ) -> BackupResult<PathBuf> {
     info!("Validating backup");
 
@@ -174,7 +175,7 @@ pub fn backup(
     let key = password_to_key(&password);
 
     // Read and encrypt the tar archive
-    encrypt_backup(&tar_path, &output_path, &key)?;
+    encrypt_backup(&tar_path, &output_path, &key, chunk_size)?;
 
     // Delete temporary tar file
     fs::remove_file(&tar_path)?;
@@ -353,12 +354,14 @@ mod tests {
         let extract_output_path = non_existent_temp_file();
         let extract_output_root = extract_output_path.join("encrypted-backup");
         let password = "password123";
+        let chunk_size = 1024;
 
         backup(
             &include_paths,
             &exclude_globs,
             &backup_output_path,
             password,
+            chunk_size,
         )
         .unwrap();
         extract(&backup_output_path, &extract_output_path, password).unwrap();
@@ -389,6 +392,7 @@ mod tests {
         let extract_output_path = non_existent_temp_file();
         let extract_output_root = extract_output_path.join(&src_path.file_name().unwrap());
         let password = "password123";
+        let chunk_size = 1024;
 
         {
             fs::create_dir(&src_path).unwrap();
@@ -401,6 +405,7 @@ mod tests {
             &exclude_globs,
             &backup_output_path,
             password,
+            chunk_size,
         )
         .unwrap();
         extract(&backup_output_path, &extract_output_path, password).unwrap();

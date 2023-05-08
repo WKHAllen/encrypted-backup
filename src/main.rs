@@ -24,15 +24,24 @@ enum Commands {
         /// Paths to include in the backup.
         #[arg(required = true, value_parser = validate_path)]
         include_paths: Vec<PathBuf>,
-        /// Comma-separated globs to exclude from the backup.
+        /// Globs to exclude from the backup, separated by commas.
         #[arg(short, long, value_delimiter = ',', value_parser = validate_glob)]
         exclude_globs: Vec<Pattern>,
-        /// Path to save the backup to.
+        /// Output path of the backup.
         #[arg(short, long, required = true, value_parser = validate_output_path)]
         output_path: PathBuf,
-        /// Password for the backup file.
+        /// Password for the backup file. The same password will be needed to
+        /// extract the backup later. Without it, the backup cannot be
+        /// extracted.
         #[arg(short, long, value_parser = validate_password)]
         password: Option<String>,
+        /// Size of each chunk of the backup, as an order of magnitude. For a
+        /// provided chunk size magnitude n, each chunk will be 2^n bytes. A
+        /// higher chunk size means a faster backup, but greater memory usage.
+        /// The default magnitude is 16, equivalent to a chunk size of 64 KiB.
+        /// Note that the same chunk size will be used to extract the backup.
+        #[arg(short, long, value_parser = validate_chunk_size, default_value_t = 16)]
+        chunk_size_magnitude: u8,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -119,6 +128,18 @@ fn validate_output_path(path_str: &str) -> Result<PathBuf, String> {
     }
 }
 
+fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
+    let size = chunk_size.parse::<u8>().map_err(|e| e.to_string())?;
+
+    if size < 10 {
+        Err("Chunk size order of magnitude must be at least 10".to_owned())
+    } else if size > 30 {
+        Err("Chunk size order of magnitude must be at most 30".to_owned())
+    } else {
+        Ok(size)
+    }
+}
+
 fn get_password(password: Option<String>, confirm: bool, validate: bool) -> Result<String, String> {
     match password {
         Some(pw) => Ok(pw),
@@ -151,12 +172,23 @@ fn main() {
             exclude_globs,
             output_path,
             password,
+            chunk_size_magnitude,
             debug,
         } => {
             logger::init(debug).unwrap();
 
+            // Fail immediately if not enough memory can be allocated
+            let chunk = vec![0u8; 1 << chunk_size_magnitude];
+            drop(chunk);
+
             match get_password(password, true, true) {
-                Ok(pw) => match backup::backup(&include_paths, &exclude_globs, &output_path, &pw) {
+                Ok(pw) => match backup::backup(
+                    &include_paths,
+                    &exclude_globs,
+                    &output_path,
+                    &pw,
+                    1 << chunk_size_magnitude,
+                ) {
                     Ok(path) => println!("Successfully backed up to {}", path.display()),
                     Err(e) => println!("Failed to perform backup: {}", e),
                 },

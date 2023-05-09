@@ -136,6 +136,7 @@ pub fn backup(
     output_path: impl AsRef<Path>,
     password: &str,
     chunk_size: usize,
+    async_io: bool,
 ) -> BackupResult<PathBuf> {
     info!("Validating backup");
 
@@ -175,7 +176,17 @@ pub fn backup(
     let key = password_to_key(&password);
 
     // Read and encrypt the tar archive
-    encrypt_backup(&tar_path, &output_path, &key, chunk_size)?;
+    if !async_io {
+        encrypt_backup_sync(&tar_path, &output_path, &key, chunk_size)?;
+    } else {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                encrypt_backup_async(&tar_path, &output_path, &key, chunk_size).await
+            })?;
+    }
 
     // Delete temporary tar file
     fs::remove_file(&tar_path)?;
@@ -191,6 +202,7 @@ pub fn extract(
     path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
     password: &str,
+    async_io: bool,
 ) -> BackupResult<PathBuf> {
     info!("Validating extraction");
 
@@ -203,7 +215,17 @@ pub fn extract(
     let key = password_to_key(&password);
 
     // Decrypt the backup
-    let tar_file = decrypt_backup(&path, &key)?;
+    let tar_file = if !async_io {
+        decrypt_backup_sync(&path, &key)?
+    } else {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                Ok::<_, BackupError>(decrypt_backup_async(&path, &key).await?.into_std().await)
+            })?
+    };
 
     info!("Extracting decrypted backup");
 
@@ -362,9 +384,33 @@ mod tests {
             &backup_output_path,
             password,
             chunk_size,
+            false,
         )
         .unwrap();
-        extract(&backup_output_path, &extract_output_path, password).unwrap();
+        extract(&backup_output_path, &extract_output_path, password, false).unwrap();
+
+        verify_identical_trees(
+            &root,
+            &extract_output_root,
+            false,
+            &ignore_dir_names,
+            &ignore_file_names,
+        )
+        .unwrap();
+
+        fs::remove_file(&backup_output_path).unwrap();
+        fs::remove_dir_all(&extract_output_path).unwrap();
+
+        backup(
+            &include_paths,
+            &exclude_globs,
+            &backup_output_path,
+            password,
+            chunk_size,
+            true,
+        )
+        .unwrap();
+        extract(&backup_output_path, &extract_output_path, password, true).unwrap();
 
         verify_identical_trees(
             &root,
@@ -406,9 +452,40 @@ mod tests {
             &backup_output_path,
             password,
             chunk_size,
+            false,
         )
         .unwrap();
-        extract(&backup_output_path, &extract_output_path, password).unwrap();
+        extract(&backup_output_path, &extract_output_path, password, false).unwrap();
+
+        verify_identical_trees(
+            &src_path,
+            &extract_output_root,
+            false,
+            &ignore_dir_names,
+            &ignore_file_names,
+        )
+        .unwrap();
+
+        fs::remove_dir_all(&src_path).unwrap();
+        fs::remove_file(&backup_output_path).unwrap();
+        fs::remove_dir_all(&extract_output_path).unwrap();
+
+        {
+            fs::create_dir(&src_path).unwrap();
+            File::create(&empty_file).unwrap();
+            fs::create_dir(&empty_dir).unwrap();
+        }
+
+        backup(
+            &include_paths,
+            &exclude_globs,
+            &backup_output_path,
+            password,
+            chunk_size,
+            true,
+        )
+        .unwrap();
+        extract(&backup_output_path, &extract_output_path, password, true).unwrap();
 
         verify_identical_trees(
             &src_path,

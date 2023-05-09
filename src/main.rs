@@ -42,6 +42,10 @@ enum Commands {
         /// Note that the same chunk size will be used to extract the backup.
         #[arg(short, long, value_parser = validate_chunk_size, default_value_t = 16)]
         chunk_size_magnitude: u8,
+        /// Asynchronous file I/O mode. Disabled by default. Enabling this
+        /// generally makes things slower.
+        #[arg(short, long, value_parser, default_value_t = false)]
+        async_io: bool,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -57,6 +61,10 @@ enum Commands {
         /// Password for the backup file.
         #[arg(short, long, value_parser)]
         password: Option<String>,
+        /// Asynchronous file I/O mode. Disabled by default. Enabling this
+        /// generally makes things slower.
+        #[arg(short, long, value_parser, default_value_t = false)]
+        async_io: bool,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -173,6 +181,7 @@ fn main() {
             output_path,
             password,
             chunk_size_magnitude,
+            async_io,
             debug,
         } => {
             logger::init(debug).unwrap();
@@ -188,6 +197,7 @@ fn main() {
                     &output_path,
                     &pw,
                     1 << chunk_size_magnitude,
+                    async_io,
                 ) {
                     Ok(path) => println!("Successfully backed up to {}", path.display()),
                     Err(e) => println!("Failed to perform backup: {}", e),
@@ -199,12 +209,13 @@ fn main() {
             backup_path,
             output_path,
             password,
+            async_io,
             debug,
         } => {
             logger::init(debug).unwrap();
 
             match get_password(password, false, false) {
-                Ok(pw) => match backup::extract(&backup_path, &output_path, &pw) {
+                Ok(pw) => match backup::extract(&backup_path, &output_path, &pw, async_io) {
                     Ok(path) => println!("Successfully extracted to {}", path.display()),
                     Err(e) => {
                         println!("Failed to perform extraction: {}", e);

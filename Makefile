@@ -1,5 +1,3 @@
-.PHONY: all build run test clean
-
 all: build
 
 build:
@@ -10,6 +8,9 @@ run:
 
 test:
 	cargo test -- --nocapture
+
+lint:
+	cargo clippy -- -D warnings
 
 clean:
 	cargo clean

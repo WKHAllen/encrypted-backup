@@ -1,3 +1,5 @@
+//! Cryptographic utilities.
+
 use crate::BackupResult;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};

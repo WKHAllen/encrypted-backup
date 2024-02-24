@@ -1,3 +1,5 @@
+//! Application-level type definitions.
+
 use std::fmt;
 use std::io;
 use std::path::PathBuf;
@@ -5,28 +7,35 @@ use std::path::PathBuf;
 /// An error during a backup or extraction.
 #[derive(Debug)]
 pub enum BackupError {
+    /// An I/O error.
     IOError(io::Error),
+    /// A cryptographic error.
     CryptoError(aes_gcm::Error),
+    /// A duplicate include path name was encountered.
     DuplicateIncludeName(String),
+    /// The specified path already exists.
     PathAlreadyExists(PathBuf),
-}
-
-impl BackupError {
-    pub fn msg(&self) -> String {
-        match self {
-            Self::IOError(e) => format!("IO error: {}", e),
-            Self::CryptoError(e) => format!("Crypto error: {}", e),
-            Self::DuplicateIncludeName(name) => format!("Duplicate include path name: {}", name),
-            Self::PathAlreadyExists(path) => format!("Path already exists: {} ", path.display()),
-        }
-    }
 }
 
 impl fmt::Display for BackupError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.msg().as_str())
+        f.write_str(
+            match self {
+                Self::IOError(e) => format!("IO error: {}", e),
+                Self::CryptoError(e) => format!("Crypto error: {}", e),
+                Self::DuplicateIncludeName(name) => {
+                    format!("Duplicate include path name: {}", name)
+                }
+                Self::PathAlreadyExists(path) => {
+                    format!("Path already exists: {} ", path.display())
+                }
+            }
+            .as_str(),
+        )
     }
 }
+
+impl std::error::Error for BackupError {}
 
 impl From<io::Error> for BackupError {
     fn from(e: io::Error) -> Self {
@@ -40,14 +49,18 @@ impl From<aes_gcm::Error> for BackupError {
     }
 }
 
+/// An application-level backup-related `Result`.
 pub type BackupResult<T> = Result<T, BackupError>;
 
 /// A type of path.
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum PathType {
+    /// A file.
     File,
+    /// A directory.
     Directory,
+    /// Either a file or a directory.
     Any,
 }
 

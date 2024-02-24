@@ -1,3 +1,5 @@
+//! Utilities for applying cryptography to a backup.
+
 use crate::crypto::*;
 use crate::types::*;
 use std::fs::File as StdFile;

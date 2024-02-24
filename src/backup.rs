@@ -1,3 +1,5 @@
+//! Backup logic.
+
 use crate::backup_crypto::*;
 use crate::crypto::*;
 use crate::types::*;

@@ -14,16 +14,18 @@ use crate::types::*;
 use clap::{Parser, Subcommand};
 use glob::Pattern;
 use std::hint::black_box;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A tool to securely back up files and directories.
 #[derive(Parser, Debug)]
 #[command(about, long_about = None)]
 struct Cli {
+    /// Encrypted backup subcommands.
     #[command(subcommand)]
     command: Commands,
 }
 
+/// Encrypted backup subcommands.
 #[derive(Subcommand, Debug)]
 enum Commands {
     /// Backs up and encrypts files and directories.
@@ -78,20 +80,22 @@ enum Commands {
     },
 }
 
+/// Validates that a provided path exists and is a file.
 fn validate_file(path_str: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(path_str);
+    let path = Path::new(path_str);
 
     if !path.exists() {
         Err(format!("Path does not exist: {}", path_str))
     } else if !path.is_file() {
         Err(format!("Path is not a file: {}", path_str))
     } else {
-        Ok(path)
+        Ok(path.to_owned())
     }
 }
 
+/// Validates that a provided path exists and is either a file or directory.
 fn validate_path(path_str: &str) -> Result<PathBuf, String> {
-    let path = PathBuf::from(path_str);
+    let path = Path::new(path_str);
 
     if !path.exists() {
         Err(format!("Path does not exist: {}", path.display()))
@@ -101,19 +105,16 @@ fn validate_path(path_str: &str) -> Result<PathBuf, String> {
             path.display()
         ))
     } else {
-        Ok(path)
+        Ok(path.to_owned())
     }
 }
 
+/// Validates that a glob is legitimate.
 fn validate_glob(glob_str: &str) -> Result<Pattern, String> {
-    let glob_result = Pattern::new(glob_str);
-
-    match glob_result {
-        Ok(glob_pattern) => Ok(glob_pattern),
-        Err(_e) => Err(format!("Invalid glob: {}", glob_str)),
-    }
+    Pattern::new(glob_str).map_err(|_e| format!("Invalid glob: {}", glob_str))
 }
 
+/// Validates that a password is of the correct length.
 fn validate_password(password: &str) -> Result<String, String> {
     if password.len() < 8 {
         Err("Password must be at least 8 characters in length".to_owned())
@@ -124,6 +125,8 @@ fn validate_password(password: &str) -> Result<String, String> {
     }
 }
 
+/// Validates that a provided output path does not yet exist and has a valid
+/// parent directory.
 fn validate_output_path(path_str: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(path_str);
 
@@ -143,6 +146,9 @@ fn validate_output_path(path_str: &str) -> Result<PathBuf, String> {
     }
 }
 
+/// Validates that the provided chunk size is within the accepted range. This
+/// additionally attempts to allocate a chunk of data with the provided size
+/// to ensure the program has enough memory.
 fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
     let size = chunk_size.parse::<u8>().map_err(|e| e.to_string())?;
 
@@ -151,16 +157,18 @@ fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
     } else if size > 30 {
         Err("Chunk size order of magnitude must be at most 30".to_owned())
     } else {
-        Ok(size)
+        // `black_box` is used to ensure that the compiler does not optimize
+        // the allocation away.
+        let mut chunk = black_box(Vec::<u8>::new());
+
+        match chunk.try_reserve(1 << size) {
+            Ok(_) => Ok(size),
+            Err(_) => Err(format!("Cannot allocate chunk size of magnitude {}", size)),
+        }
     }
 }
 
-fn test_chunk_size_magnitude(chunk_size: u8) -> bool {
-    let chunk = vec![0u8; 1 << chunk_size];
-    drop(chunk);
-    true
-}
-
+/// Prompts for the password from standard input.
 fn get_password(password: Option<String>, confirm: bool, validate: bool) -> Result<String, String> {
     match password {
         Some(pw) => Ok(pw),
@@ -198,9 +206,6 @@ fn main() {
             debug,
         } => {
             logger::init(debug).unwrap();
-
-            // Fail immediately if not enough memory can be allocated
-            black_box(test_chunk_size_magnitude(chunk_size_magnitude));
 
             match get_password(password, true, true) {
                 Ok(pw) => match backup::backup(

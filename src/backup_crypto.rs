@@ -25,10 +25,10 @@ pub fn encode_section_size(mut size: usize) -> [u8; LEN_SIZE] {
 pub fn decode_section_size(encoded_size: &[u8; LEN_SIZE]) -> usize {
     let mut size: usize = 0;
 
-    for i in 0..LEN_SIZE {
+    encoded_size.iter().for_each(|val| {
         size <<= 8;
-        size += usize::from(encoded_size[i]);
-    }
+        size += usize::from(*val);
+    });
 
     size
 }
@@ -88,7 +88,7 @@ fn write_section_sync(file: &mut StdFile, data: &[u8]) -> io::Result<()> {
     let encoded_size = encode_section_size(data.len());
 
     file.write_all(&encoded_size)?;
-    file.write_all(&data)?;
+    file.write_all(data)?;
 
     Ok(())
 }
@@ -98,7 +98,7 @@ async fn write_section_async(file: &mut TokioFile, data: &[u8]) -> io::Result<()
     let encoded_size = encode_section_size(data.len());
 
     file.write_all(&encoded_size).await?;
-    file.write_all(&data).await?;
+    file.write_all(data).await?;
 
     Ok(())
 }
@@ -119,7 +119,7 @@ fn encrypt_file_sync(
             break;
         }
 
-        let encrypted_data = aes_encrypt(&key, &buffer[..n])?;
+        let encrypted_data = aes_encrypt(key, &buffer[..n])?;
         write_section_sync(dest, &encrypted_data)?;
     }
 
@@ -145,7 +145,7 @@ async fn encrypt_file_async(
             break;
         }
 
-        let encrypted_data = aes_encrypt(&key, &buffer[..n])?;
+        let encrypted_data = aes_encrypt(key, &buffer[..n])?;
         write_section_async(dest, &encrypted_data).await?;
     }
 
@@ -167,7 +167,7 @@ fn decrypt_file_sync(
             None => break,
         };
 
-        let decrypted_data = aes_decrypt(&key, &data)?;
+        let decrypted_data = aes_decrypt(key, &data)?;
 
         dest.write_all(&decrypted_data)?;
     }
@@ -190,7 +190,7 @@ async fn decrypt_file_async(
             None => break,
         };
 
-        let decrypted_data = aes_decrypt(&key, &data)?;
+        let decrypted_data = aes_decrypt(key, &data)?;
 
         dest.write_all(&decrypted_data).await?;
     }

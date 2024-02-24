@@ -40,7 +40,7 @@ pub fn aes_decrypt(
 /// Converts a password of arbitrary length to an AES key by performing a SHA-256 hash.
 pub fn password_to_key(password: &str) -> [u8; AES_KEY_SIZE] {
     let mut hasher = Sha256::new();
-    hasher.update(&password);
+    hasher.update(password);
     let result = hasher.finalize();
     result.into()
 }

@@ -1,3 +1,9 @@
+//! A command line tool to securely back up files and directories.
+
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+#![warn(clippy::missing_docs_in_private_items)]
+
 mod backup;
 mod backup_crypto;
 mod crypto;
@@ -7,6 +13,7 @@ mod types;
 use crate::types::*;
 use clap::{Parser, Subcommand};
 use glob::Pattern;
+use std::hint::black_box;
 use std::path::PathBuf;
 
 /// A tool to securely back up files and directories.
@@ -148,6 +155,12 @@ fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
     }
 }
 
+fn test_chunk_size_magnitude(chunk_size: u8) -> bool {
+    let chunk = vec![0u8; 1 << chunk_size];
+    drop(chunk);
+    true
+}
+
 fn get_password(password: Option<String>, confirm: bool, validate: bool) -> Result<String, String> {
     match password {
         Some(pw) => Ok(pw),
@@ -187,14 +200,13 @@ fn main() {
             logger::init(debug).unwrap();
 
             // Fail immediately if not enough memory can be allocated
-            let chunk = vec![0u8; 1 << chunk_size_magnitude];
-            drop(chunk);
+            black_box(test_chunk_size_magnitude(chunk_size_magnitude));
 
             match get_password(password, true, true) {
                 Ok(pw) => match backup::backup(
                     &include_paths,
                     &exclude_globs,
-                    &output_path,
+                    output_path,
                     &pw,
                     1 << chunk_size_magnitude,
                     async_io,
@@ -215,14 +227,13 @@ fn main() {
             logger::init(debug).unwrap();
 
             match get_password(password, false, false) {
-                Ok(pw) => match backup::extract(&backup_path, &output_path, &pw, async_io) {
+                Ok(pw) => match backup::extract(backup_path, output_path, &pw, async_io) {
                     Ok(path) => println!("Successfully extracted to {}", path.display()),
                     Err(e) => {
                         println!("Failed to perform extraction: {}", e);
 
-                        match e {
-                            BackupError::CryptoError(_) => println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup."),
-                            _ => (),
+                        if let BackupError::CryptoError(_) = e {
+                            println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup.");
                         }
                     }
                 },

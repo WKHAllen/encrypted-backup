@@ -88,7 +88,7 @@ fn append_to_archive<T: Write>(
     exclude_globs: &[Pattern],
     relative_path: impl AsRef<Path>,
 ) -> io::Result<()> {
-    if !glob_excluded(&relative_path, &exclude_globs) {
+    if !glob_excluded(&relative_path, exclude_globs) {
         if include_path.as_ref().is_dir() {
             // Append the directory itself (this is necessary because if the directory is empty, it will not be appended to the archive)
             match archive.append_path_with_name(&include_path, &relative_path) {
@@ -161,8 +161,8 @@ pub fn backup(
 
         append_to_archive(
             &mut archive,
-            &include_path,
-            &exclude_globs,
+            include_path,
+            exclude_globs,
             Path::new(&include_name),
         )?;
     }
@@ -173,11 +173,11 @@ pub fn backup(
     info!("Encrypting backup");
 
     // Turn the password into a 256-bit key used for encryption
-    let key = password_to_key(&password);
+    let key = password_to_key(password);
 
     // Read and encrypt the tar archive
     if !async_io {
-        encrypt_backup_sync(&tar_path, &output_path, &key, chunk_size)?;
+        encrypt_backup_sync(tar_path, &output_path, &key, chunk_size)?;
     } else {
         tokio::runtime::Builder::new_multi_thread()
             .enable_all()
@@ -189,7 +189,7 @@ pub fn backup(
     }
 
     // Delete temporary tar file
-    fs::remove_file(&tar_path)?;
+    fs::remove_file(tar_path)?;
 
     info!("Backup complete");
 
@@ -212,7 +212,7 @@ pub fn extract(
     info!("Decrypting backup");
 
     // Turn the password into a 256-bit key used for encryption
-    let key = password_to_key(&password);
+    let key = password_to_key(password);
 
     // Decrypt the backup
     let tar_file = if !async_io {
@@ -263,16 +263,12 @@ mod tests {
         let entry_file_name = entry.file_name();
         let entry_name = entry_file_name.to_str().unwrap();
 
-        if entry.file_type().unwrap().is_dir() {
-            if ignore_dir_names.contains(&entry_name) {
-                return false;
-            }
+        if entry.file_type().unwrap().is_dir() && ignore_dir_names.contains(&entry_name) {
+            return false;
         }
 
-        if entry.file_type().unwrap().is_file() {
-            if ignore_file_names.contains(&entry_name) {
-                return false;
-            }
+        if entry.file_type().unwrap().is_file() && ignore_file_names.contains(&entry_name) {
+            return false;
         }
 
         true
@@ -436,7 +432,7 @@ mod tests {
         let ignore_file_names = [];
         let backup_output_path = non_existent_temp_file();
         let extract_output_path = non_existent_temp_file();
-        let extract_output_root = extract_output_path.join(&src_path.file_name().unwrap());
+        let extract_output_root = extract_output_path.join(src_path.file_name().unwrap());
         let password = "password123";
         let chunk_size = 1024;
 

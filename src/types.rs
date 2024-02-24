@@ -3,44 +3,23 @@
 use std::fmt;
 use std::io;
 use std::path::PathBuf;
+use thiserror::Error;
 
 /// An error during a backup or extraction.
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum BackupError {
     /// An I/O error.
-    IOError(io::Error),
+    #[error("I/O error: {0}")]
+    IoError(#[from] io::Error),
     /// A cryptographic error.
+    #[error("cryptographic error: {0}")]
     CryptoError(aes_gcm::Error),
     /// A duplicate include path name was encountered.
+    #[error("duplicate include path name: {0}")]
     DuplicateIncludeName(String),
     /// The specified path already exists.
+    #[error("path already exists: {0}")]
     PathAlreadyExists(PathBuf),
-}
-
-impl fmt::Display for BackupError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(
-            match self {
-                Self::IOError(e) => format!("IO error: {}", e),
-                Self::CryptoError(e) => format!("Crypto error: {}", e),
-                Self::DuplicateIncludeName(name) => {
-                    format!("Duplicate include path name: {}", name)
-                }
-                Self::PathAlreadyExists(path) => {
-                    format!("Path already exists: {} ", path.display())
-                }
-            }
-            .as_str(),
-        )
-    }
-}
-
-impl std::error::Error for BackupError {}
-
-impl From<io::Error> for BackupError {
-    fn from(e: io::Error) -> Self {
-        Self::IOError(e)
-    }
 }
 
 impl From<aes_gcm::Error> for BackupError {

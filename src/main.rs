@@ -15,6 +15,7 @@ use clap::{Parser, Subcommand};
 use glob::Pattern;
 use std::hint::black_box;
 use std::path::{Path, PathBuf};
+use std::process::exit;
 
 /// A tool to securely back up files and directories.
 #[derive(Parser, Debug)]
@@ -192,10 +193,9 @@ fn get_password(password: Option<String>, confirm: bool, validate: bool) -> Resu
     }
 }
 
-fn main() {
-    let cli = Cli::parse();
-
-    match cli.command {
+/// Attempt to perform a backup or extraction.
+fn perform_backup(command: Commands) -> Result<String, String> {
+    match command {
         Commands::Backup {
             include_paths,
             exclude_globs,
@@ -216,10 +216,10 @@ fn main() {
                     1 << chunk_size_magnitude,
                     async_io,
                 ) {
-                    Ok(path) => println!("Successfully backed up to {}", path.display()),
-                    Err(e) => println!("Failed to perform backup: {}", e),
+                    Ok(path) => Ok(format!("Successfully backed up to {}", path.display())),
+                    Err(e) => Err(format!("Failed to perform backup: {}", e)),
                 },
-                Err(e) => println!("Invalid password: {}", e),
+                Err(e) => Err(format!("Invalid password: {}", e)),
             }
         }
         Commands::Extract {
@@ -233,17 +233,27 @@ fn main() {
 
             match get_password(password, false, false) {
                 Ok(pw) => match backup::extract(backup_path, output_path, &pw, async_io) {
-                    Ok(path) => println!("Successfully extracted to {}", path.display()),
-                    Err(e) => {
-                        println!("Failed to perform extraction: {}", e);
-
-                        if let BackupError::CryptoError(_) = e {
-                            println!("This usually means that the provided password was incorrect, and cannot be used to extract the backup.");
-                        }
-                    }
+                    Ok(path) => Ok(format!("Successfully extracted to {}", path.display())),
+                    Err(e) => Err(if let BackupError::CryptoError(_) = e {
+                        format!("Failed to perform extraction: {}.\nThis usually means that the provided password was incorrect, and cannot be used to extract the backup.", e)
+                    } else {
+                        format!("Failed to perform extraction: {}", e)
+                    }),
                 },
-                Err(e) => println!("Invalid password: {}", e),
+                Err(e) => Err(format!("Invalid password: {}", e)),
             }
+        }
+    }
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    match perform_backup(cli.command) {
+        Ok(msg) => println!("{}", msg),
+        Err(msg) => {
+            eprintln!("{}", msg);
+            exit(1);
         }
     }
 }

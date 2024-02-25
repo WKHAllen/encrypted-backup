@@ -1,6 +1,11 @@
 [package]
 name = "encrypted-backup"
 version = "0.1.0"
+license = "MIT"
+description = "A command line tool to securely back up files and directories."
+repository = "https://github.com/WKHAllen/encrypted-backup"
+keywords = ["cli", "crypto", "backup"]
+categories = ["command-line-utilities", "cryptography", "filesystem"]
 edition = "2021"
 
 [dependencies]

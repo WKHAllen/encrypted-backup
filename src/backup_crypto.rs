@@ -12,27 +12,21 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 pub const LEN_SIZE: usize = 5;
 
 /// Encodes the size portion of a section of data.
-pub fn encode_section_size(mut size: usize) -> [u8; LEN_SIZE] {
-    let mut encoded_size = [0u8; LEN_SIZE];
-
-    for i in 0..LEN_SIZE {
-        encoded_size[LEN_SIZE - i - 1] = u8::try_from(size % 256).unwrap();
-        size >>= 8;
-    }
-
-    encoded_size
+pub fn encode_section_size(size: usize) -> [u8; LEN_SIZE] {
+    (0..LEN_SIZE)
+        .fold((size, [0u8; LEN_SIZE]), |(size, mut encoded_size), i| {
+            encoded_size[LEN_SIZE - i - 1] = u8::try_from(size % 256).unwrap();
+            (size >> 8, encoded_size)
+        })
+        .1
 }
 
 /// Decodes the size portion of a section of data.
+#[allow(clippy::trivially_copy_pass_by_ref)]
 pub fn decode_section_size(encoded_size: &[u8; LEN_SIZE]) -> usize {
-    let mut size: usize = 0;
-
-    encoded_size.iter().for_each(|val| {
-        size <<= 8;
-        size += usize::from(*val);
-    });
-
-    size
+    encoded_size
+        .iter()
+        .fold(0, |size, val| (size << 8) + usize::from(*val))
 }
 
 /// Reads a section of data from a file synchronously.
@@ -164,9 +158,8 @@ fn decrypt_file_sync(
     key: &[u8; AES_KEY_SIZE],
 ) -> BackupResult<()> {
     loop {
-        let data = match read_section_sync(src)? {
-            Some(data) => data,
-            None => break,
+        let Some(data) = read_section_sync(src)? else {
+            break;
         };
 
         let decrypted_data = aes_decrypt(key, &data)?;
@@ -187,9 +180,8 @@ async fn decrypt_file_async(
     key: &[u8; AES_KEY_SIZE],
 ) -> BackupResult<()> {
     loop {
-        let data = match read_section_async(src).await? {
-            Some(data) => data,
-            None => break,
+        let Some(data) = read_section_async(src).await? else {
+            break;
         };
 
         let decrypted_data = aes_decrypt(key, &data)?;
@@ -217,6 +209,7 @@ pub fn encrypt_backup_sync(
 }
 
 /// Encrypts a backup file in chunks asynchronously.
+#[allow(clippy::future_not_send)]
 pub async fn encrypt_backup_async(
     src_path: impl AsRef<Path>,
     dest_path: impl AsRef<Path>,
@@ -243,6 +236,7 @@ pub fn decrypt_backup_sync(
 }
 
 /// Decrypts a backup file in chunks asynchronously.
+#[allow(clippy::future_not_send)]
 pub async fn decrypt_backup_async(
     src_path: impl AsRef<Path>,
     key: &[u8; AES_KEY_SIZE],
@@ -354,11 +348,11 @@ mod tests {
         assert_eq!(encode_section_size(255), [0, 0, 0, 0, 255]);
         assert_eq!(encode_section_size(256), [0, 0, 0, 1, 0]);
         assert_eq!(encode_section_size(257), [0, 0, 0, 1, 1]);
-        assert_eq!(encode_section_size(4311810305), [1, 1, 1, 1, 1]);
-        assert_eq!(encode_section_size(4328719365), [1, 2, 3, 4, 5]);
-        assert_eq!(encode_section_size(47362409218), [11, 7, 5, 3, 2]);
+        assert_eq!(encode_section_size(4_311_810_305), [1, 1, 1, 1, 1]);
+        assert_eq!(encode_section_size(4_328_719_365), [1, 2, 3, 4, 5]);
+        assert_eq!(encode_section_size(47_362_409_218), [11, 7, 5, 3, 2]);
         assert_eq!(
-            encode_section_size(1099511627775),
+            encode_section_size(1_099_511_627_775),
             [255, 255, 255, 255, 255]
         );
     }
@@ -370,12 +364,12 @@ mod tests {
         assert_eq!(decode_section_size(&[0, 0, 0, 0, 255]), 255);
         assert_eq!(decode_section_size(&[0, 0, 0, 1, 0]), 256);
         assert_eq!(decode_section_size(&[0, 0, 0, 1, 1]), 257);
-        assert_eq!(decode_section_size(&[1, 1, 1, 1, 1]), 4311810305);
-        assert_eq!(decode_section_size(&[1, 2, 3, 4, 5]), 4328719365);
-        assert_eq!(decode_section_size(&[11, 7, 5, 3, 2]), 47362409218);
+        assert_eq!(decode_section_size(&[1, 1, 1, 1, 1]), 4_311_810_305);
+        assert_eq!(decode_section_size(&[1, 2, 3, 4, 5]), 4_328_719_365);
+        assert_eq!(decode_section_size(&[11, 7, 5, 3, 2]), 47_362_409_218);
         assert_eq!(
             decode_section_size(&[255, 255, 255, 255, 255]),
-            1099511627775
+            1_099_511_627_775
         );
     }
 
@@ -446,10 +440,9 @@ mod tests {
         assert_eq!(plaintext, large_data);
         assert_ne!(plaintext, ciphertext);
         let delta = end.duration_since(start);
-        println!(
-            "Sync file encryption/decryption completed in {}s",
-            (delta.as_micros() as f64) / 1_000_000f64
-        );
+        #[allow(clippy::cast_precision_loss)]
+        let delta_seconds = (delta.as_micros() as f64) / 1_000_000f64;
+        println!("Sync file encryption/decryption completed in {delta_seconds}s");
 
         let start = Instant::now();
         let (ciphertext, plaintext) =
@@ -459,9 +452,8 @@ mod tests {
         assert_eq!(plaintext, large_data);
         assert_ne!(plaintext, ciphertext);
         let delta = end.duration_since(start);
-        println!(
-            "Async file encryption/decryption completed in {}s",
-            (delta.as_micros() as f64) / 1_000_000f64
-        );
+        #[allow(clippy::cast_precision_loss)]
+        let delta_seconds = (delta.as_micros() as f64) / 1_000_000f64;
+        println!("Async file encryption/decryption completed in {delta_seconds}s");
     }
 }

@@ -1,4 +1,4 @@
-//! Backup logic.
+//! Encrypted backup logic.
 
 use crate::backup_crypto::*;
 use crate::crypto::*;
@@ -49,9 +49,9 @@ fn validate_no_duplicate_include_names(include_paths: &[impl AsRef<Path>]) -> Ba
         // If an include path with the same name is already in the set, then we have a duplicate
         if include_set.contains(&include_name) {
             return Err(BackupError::DuplicateIncludeName(include_name));
-        } else {
-            include_set.insert(include_name);
         }
+
+        include_set.insert(include_name);
     }
 
     // No duplicates
@@ -107,7 +107,7 @@ fn append_to_archive<T: Write>(
             }?;
 
             // Iterate over all entries that did not throw errors
-            for entry in entries.into_iter().filter_map(|e| e.ok()) {
+            for entry in entries.into_iter().filter_map(Result::ok) {
                 let entry_path = include_path
                     .as_ref()
                     .join(entry.file_name().to_str().unwrap());

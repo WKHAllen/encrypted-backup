@@ -2,7 +2,15 @@
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+#![warn(unused_mut)]
 #![warn(clippy::missing_docs_in_private_items)]
+#![deny(clippy::all)]
+#![warn(clippy::pedantic)]
+#![warn(clippy::nursery)]
+#![warn(clippy::cargo)]
+#![allow(clippy::wildcard_imports)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::ignored_unit_patterns)]
 
 mod backup;
 mod backup_crypto;
@@ -88,9 +96,9 @@ fn validate_file(path_str: &str) -> Result<PathBuf, String> {
     let path = Path::new(path_str);
 
     if !path.exists() {
-        Err(format!("Path does not exist: {}", path_str))
+        Err(format!("Path does not exist: {path_str}"))
     } else if !path.is_file() {
-        Err(format!("Path is not a file: {}", path_str))
+        Err(format!("Path is not a file: {path_str}"))
     } else {
         Ok(path.to_owned())
     }
@@ -114,7 +122,7 @@ fn validate_path(path_str: &str) -> Result<PathBuf, String> {
 
 /// Validates that a glob is legitimate.
 fn validate_glob(glob_str: &str) -> Result<Pattern, String> {
-    Pattern::new(glob_str).map_err(|e| format!("Invalid glob: {}, {}", glob_str, e))
+    Pattern::new(glob_str).map_err(|e| format!("Invalid glob: {glob_str}, {e}"))
 }
 
 /// Validates that a password is of the correct length.
@@ -166,31 +174,30 @@ fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
 
         match chunk.try_reserve(1 << size) {
             Ok(_) => Ok(size),
-            Err(_) => Err(format!("Cannot allocate chunk size of magnitude {}", size)),
+            Err(_) => Err(format!("Cannot allocate chunk size of magnitude {size}")),
         }
     }
 }
 
 /// Prompts for the password from standard input.
 fn get_password(password: Option<String>, confirm: bool, validate: bool) -> Result<String, String> {
-    match password {
-        Some(pw) => Ok(pw),
-        None => {
-            let pw = rpassword::prompt_password("Backup password: ").unwrap();
+    if let Some(pw) = password {
+        Ok(pw)
+    } else {
+        let pw = rpassword::prompt_password("Backup password: ").unwrap();
 
-            if confirm {
-                let pw_confirm = rpassword::prompt_password("Confirm password: ").unwrap();
+        if confirm {
+            let pw_confirm = rpassword::prompt_password("Confirm password: ").unwrap();
 
-                if pw != pw_confirm {
-                    return Err("Passwords do not match".to_owned());
-                }
+            if pw != pw_confirm {
+                return Err("Passwords do not match".to_owned());
             }
+        }
 
-            if validate {
-                validate_password(&pw)
-            } else {
-                Ok(pw)
-            }
+        if validate {
+            validate_password(&pw)
+        } else {
+            Ok(pw)
         }
     }
 }
@@ -219,9 +226,9 @@ fn perform_backup(command: Commands) -> Result<String, String> {
                     async_io,
                 ) {
                     Ok(path) => Ok(format!("Successfully backed up to {}", path.display())),
-                    Err(e) => Err(format!("Failed to perform backup: {}", e)),
+                    Err(e) => Err(format!("Failed to perform backup: {e}")),
                 },
-                Err(e) => Err(format!("Invalid password: {}", e)),
+                Err(e) => Err(format!("Invalid password: {e}")),
             }
         }
         Commands::Extract {
@@ -237,12 +244,12 @@ fn perform_backup(command: Commands) -> Result<String, String> {
                 Ok(pw) => match backup::extract(backup_path, output_path, &pw, async_io) {
                     Ok(path) => Ok(format!("Successfully extracted to {}", path.display())),
                     Err(e) => Err(if let BackupError::CryptoError(_) = e {
-                        format!("Failed to perform extraction: {}.\nThis usually means that the provided password was incorrect, and cannot be used to extract the backup.", e)
+                        format!("Failed to perform extraction: {e}.\nThis usually means that the provided password was incorrect, and cannot be used to extract the backup.")
                     } else {
-                        format!("Failed to perform extraction: {}", e)
+                        format!("Failed to perform extraction: {e}")
                     }),
                 },
-                Err(e) => Err(format!("Invalid password: {}", e)),
+                Err(e) => Err(format!("Invalid password: {e}")),
             }
         }
     }
@@ -252,9 +259,9 @@ fn main() {
     let cli = Cli::parse();
 
     match perform_backup(cli.command) {
-        Ok(msg) => println!("{}", msg),
+        Ok(msg) => println!("{msg}"),
         Err(msg) => {
-            eprintln!("{}", msg);
+            eprintln!("{msg}");
             exit(1);
         }
     }

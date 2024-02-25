@@ -28,9 +28,10 @@ static LOGGER: BackupLogger = BackupLogger;
 
 /// Initializes logging.
 pub fn init(debug: bool) -> Result<(), SetLoggerError> {
-    let max_level = match debug {
-        true => LevelFilter::Debug,
-        false => LevelFilter::Warn,
+    let max_level = if debug {
+        LevelFilter::Debug
+    } else {
+        LevelFilter::Warn
     };
 
     log::set_logger(&LOGGER).map(|()| log::set_max_level(max_level))

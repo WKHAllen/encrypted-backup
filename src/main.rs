@@ -11,11 +11,13 @@
 #![allow(clippy::wildcard_imports)]
 #![allow(clippy::if_not_else)]
 #![allow(clippy::ignored_unit_patterns)]
+#![allow(clippy::needless_borrows_for_generic_args)]
 
 mod backup;
 mod backup_crypto;
 mod crypto;
 mod logger;
+mod pool;
 mod types;
 
 use crate::types::*;
@@ -61,10 +63,6 @@ enum Commands {
         /// Note that the same chunk size will be used to extract the backup.
         #[arg(short, long, value_parser = validate_chunk_size, default_value_t = 16)]
         chunk_size_magnitude: u8,
-        /// Asynchronous file I/O mode. Disabled by default. Enabling this
-        /// generally makes things slower.
-        #[arg(short, long, value_parser, default_value_t = false)]
-        async_io: bool,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -81,10 +79,6 @@ enum Commands {
         /// be prompted from standard input.
         #[arg(short, long, value_parser)]
         password: Option<String>,
-        /// Asynchronous file I/O mode. Disabled by default. Enabling this
-        /// generally makes things slower.
-        #[arg(short, long, value_parser, default_value_t = false)]
-        async_io: bool,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -211,7 +205,6 @@ fn perform_backup(command: Commands) -> Result<String, String> {
             output_path,
             password,
             chunk_size_magnitude,
-            async_io,
             debug,
         } => {
             logger::init(debug).unwrap();
@@ -223,7 +216,6 @@ fn perform_backup(command: Commands) -> Result<String, String> {
                     output_path,
                     &pw,
                     1 << chunk_size_magnitude,
-                    async_io,
                 ) {
                     Ok(path) => Ok(format!("Successfully backed up to {}", path.display())),
                     Err(e) => Err(format!("Failed to perform backup: {e}")),
@@ -235,13 +227,12 @@ fn perform_backup(command: Commands) -> Result<String, String> {
             backup_path,
             output_path,
             password,
-            async_io,
             debug,
         } => {
             logger::init(debug).unwrap();
 
             match get_password(password, false, false) {
-                Ok(pw) => match backup::extract(backup_path, output_path, &pw, async_io) {
+                Ok(pw) => match backup::extract(backup_path, output_path, &pw) {
                     Ok(path) => Ok(format!("Successfully extracted to {}", path.display())),
                     Err(e) => Err(if let BackupError::CryptoError(_) = e {
                         format!("Failed to perform extraction: {e}.\nThis usually means that the provided password was incorrect, and cannot be used to extract the backup.")

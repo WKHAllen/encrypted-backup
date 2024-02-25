@@ -42,7 +42,8 @@ enum Commands {
         output_path: PathBuf,
         /// Password for the backup file. The same password will be needed to
         /// extract the backup later. Without it, the backup cannot be
-        /// extracted.
+        /// extracted. If not provided, the password will be prompted from
+        /// standard input.
         #[arg(short, long, value_parser = validate_password)]
         password: Option<String>,
         /// Size of each chunk of the backup, as an order of magnitude. For a
@@ -68,7 +69,8 @@ enum Commands {
         /// Path to extract the backup to.
         #[arg(short, long, value_parser = validate_output_path)]
         output_path: PathBuf,
-        /// Password for the backup file.
+        /// Password for the backup file. If not provided, the password will
+        /// be prompted from standard input.
         #[arg(short, long, value_parser)]
         password: Option<String>,
         /// Asynchronous file I/O mode. Disabled by default. Enabling this
@@ -112,7 +114,7 @@ fn validate_path(path_str: &str) -> Result<PathBuf, String> {
 
 /// Validates that a glob is legitimate.
 fn validate_glob(glob_str: &str) -> Result<Pattern, String> {
-    Pattern::new(glob_str).map_err(|_e| format!("Invalid glob: {}", glob_str))
+    Pattern::new(glob_str).map_err(|e| format!("Invalid glob: {}, {}", glob_str, e))
 }
 
 /// Validates that a password is of the correct length.

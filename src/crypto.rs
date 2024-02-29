@@ -51,6 +51,7 @@ pub fn password_to_key(password: &str) -> [u8; AES_KEY_SIZE] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::thread::spawn;
 
     #[test]
     fn test_aes() {
@@ -70,5 +71,53 @@ mod tests {
         let key3 = password_to_key("password124");
         assert_eq!(key1, key2);
         assert_ne!(key1, key3);
+    }
+
+    const DATA_SIZE: usize = 1 << 16;
+
+    #[test]
+    fn benchmark_parallel_crypto() {
+        use crate::pool::task_channel;
+        use rand::random;
+        use std::time::Instant;
+
+        let sizes = [1, 2, 4, 8, 16, 32, 64];
+        let num_runs = *sizes.iter().max().unwrap();
+        let data: [u8; DATA_SIZE] = (0..DATA_SIZE)
+            .map(|_| random())
+            .collect::<Vec<u8>>()
+            .try_into()
+            .unwrap();
+        let key = [0u8; AES_KEY_SIZE];
+
+        let benchmark = move |n: usize| -> f64 {
+            let (request_sender, response_receiver) = task_channel(n);
+            let start = Instant::now();
+
+            spawn(move || {
+                for _ in 0..num_runs {
+                    request_sender
+                        .send(move || aes_encrypt(&key, &data).unwrap())
+                        .unwrap();
+                }
+            });
+
+            while response_receiver.recv().is_some() {}
+
+            let elapsed = start.elapsed();
+            elapsed.as_secs_f64()
+        };
+
+        let results = sizes
+            .into_iter()
+            .map(|n| (n, benchmark(n)))
+            .collect::<Vec<_>>();
+        let (&(base_size, base_time), rest) = results.split_first().unwrap();
+
+        println!("Base {base_size}: {base_time:.3}s");
+        for &(case_size, case_time) in rest {
+            let improvement = base_time / case_time;
+            println!("With {case_size}: {case_time:.3}s ({improvement:.3}x improvement)");
+        }
     }
 }

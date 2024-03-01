@@ -177,7 +177,7 @@ pub fn backup(
     let key = password_to_key(password);
 
     // Read and encrypt the tar archive
-    encrypt_backup(tar_path, &output_path, &key, chunk_size)?;
+    encrypt_backup(tar_path, &output_path, key, chunk_size)?;
 
     // Delete temporary tar file
     fs::remove_file(tar_path)?;
@@ -205,7 +205,7 @@ pub fn extract(
     let key = password_to_key(password);
 
     // Decrypt the backup
-    let tar_file = decrypt_backup(&path, &key)?;
+    let tar_file = decrypt_backup(&path, key)?;
 
     info!("Extracting decrypted backup");
 

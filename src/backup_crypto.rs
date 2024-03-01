@@ -1,13 +1,18 @@
 //! Utilities for applying cryptography to a backup.
 
 use crate::crypto::*;
+use crate::pool::*;
 use crate::types::*;
 use std::fs::File;
 use std::io::{self, Read, Seek, Write};
 use std::path::Path;
+use std::thread::scope;
 
 /// The length of the size portion of each chunk of data.
 pub const LEN_SIZE: usize = 5;
+
+/// The number of workers to spawn in a task channel.
+pub const TASK_CHANNEL_SIZE: usize = 16;
 
 /// Encodes the size portion of a section of data.
 pub fn encode_section_size(size: usize) -> [u8; LEN_SIZE] {
@@ -66,21 +71,52 @@ fn write_section(file: &mut File, data: &[u8]) -> io::Result<()> {
 fn encrypt_file(
     src: &mut File,
     dest: &mut File,
-    key: &[u8; AES_KEY_SIZE],
+    key: [u8; AES_KEY_SIZE],
     chunk_size: usize,
 ) -> BackupResult<()> {
-    let mut buffer = vec![0u8; chunk_size];
+    let (task_request, task_response) = task_channel(TASK_CHANNEL_SIZE);
 
-    loop {
-        let n = src.read(&mut buffer)?;
+    scope(|s| {
+        let read_handle = s.spawn(move || {
+            loop {
+                let mut buffer = vec![0u8; chunk_size];
 
-        if n == 0 {
-            break;
-        }
+                let n = src.read(&mut buffer)?;
 
-        let encrypted_data = aes_encrypt(key, &buffer[..n])?;
-        write_section(dest, &encrypted_data)?;
-    }
+                if n == 0 {
+                    break;
+                }
+
+                if task_request
+                    .send(move || aes_encrypt(key, &buffer[..n]))
+                    .is_err()
+                {
+                    // The receiver has closed prematurely, meaning it most
+                    // likely encountered an error.
+                    break;
+                }
+            }
+
+            BackupResult::Ok(())
+        });
+
+        let write_handle = s.spawn(|| {
+            // `task_response` must be explicitly moved into this closure, but
+            // the closure cannot be a move closure, as that will move `dest`
+            // into it, which will cause problems below.
+            let task_response = task_response;
+
+            while let Some(encrypted_data) = task_response.recv() {
+                write_section(dest, &encrypted_data?)?;
+            }
+
+            BackupResult::Ok(())
+        });
+
+        read_handle.join().unwrap()?;
+        write_handle.join().unwrap()?;
+        BackupResult::Ok(())
+    })?;
 
     dest.rewind()?;
     dest.flush()?;
@@ -89,16 +125,43 @@ fn encrypt_file(
 }
 
 /// Decrypts a file in chunks.
-fn decrypt_file(src: &mut File, dest: &mut File, key: &[u8; AES_KEY_SIZE]) -> BackupResult<()> {
-    loop {
-        let Some(data) = read_section(src)? else {
-            break;
-        };
+fn decrypt_file(src: &mut File, dest: &mut File, key: [u8; AES_KEY_SIZE]) -> BackupResult<()> {
+    let (task_request, task_response) = task_channel(TASK_CHANNEL_SIZE);
 
-        let decrypted_data = aes_decrypt(key, &data)?;
+    scope(|s| {
+        let read_handle = s.spawn(move || {
+            loop {
+                let Some(data) = read_section(src)? else {
+                    break;
+                };
 
-        dest.write_all(&decrypted_data)?;
-    }
+                if task_request.send(move || aes_decrypt(key, &data)).is_err() {
+                    // The receiver has closed prematurely, meaning it most
+                    // likely encountered an error.
+                    break;
+                }
+            }
+
+            BackupResult::Ok(())
+        });
+
+        let write_handle = s.spawn(|| {
+            // `task_response` must be explicitly moved into this closure, but
+            // the closure cannot be a move closure, as that will move `dest`
+            // into it, which will cause problems below.
+            let task_response = task_response;
+
+            while let Some(decrypted_data) = task_response.recv() {
+                dest.write_all(&decrypted_data?)?;
+            }
+
+            BackupResult::Ok(())
+        });
+
+        read_handle.join().unwrap()?;
+        write_handle.join().unwrap()?;
+        BackupResult::Ok(())
+    })?;
 
     dest.rewind()?;
     dest.flush()?;
@@ -110,7 +173,7 @@ fn decrypt_file(src: &mut File, dest: &mut File, key: &[u8; AES_KEY_SIZE]) -> Ba
 pub fn encrypt_backup(
     src_path: impl AsRef<Path>,
     dest_path: impl AsRef<Path>,
-    key: &[u8; AES_KEY_SIZE],
+    key: [u8; AES_KEY_SIZE],
     chunk_size: usize,
 ) -> BackupResult<()> {
     let mut src = File::open(src_path)?;
@@ -120,7 +183,7 @@ pub fn encrypt_backup(
 }
 
 /// Decrypts a backup file in chunks.
-pub fn decrypt_backup(src_path: impl AsRef<Path>, key: &[u8; AES_KEY_SIZE]) -> BackupResult<File> {
+pub fn decrypt_backup(src_path: impl AsRef<Path>, key: [u8; AES_KEY_SIZE]) -> BackupResult<File> {
     let mut src = File::open(src_path)?;
     let mut dest = tempfile::tempfile()?;
 
@@ -147,7 +210,7 @@ mod tests {
         plaintext_file.rewind().unwrap();
 
         let mut ciphertext_file = tempfile::tempfile().unwrap();
-        encrypt_file(&mut plaintext_file, &mut ciphertext_file, &key, chunk_size).unwrap();
+        encrypt_file(&mut plaintext_file, &mut ciphertext_file, key, chunk_size).unwrap();
 
         plaintext_file.rewind().unwrap();
         let mut plaintext_value = Vec::new();
@@ -159,7 +222,7 @@ mod tests {
         ciphertext_file.rewind().unwrap();
 
         let mut decrypted_file = tempfile::tempfile().unwrap();
-        decrypt_file(&mut ciphertext_file, &mut decrypted_file, &key).unwrap();
+        decrypt_file(&mut ciphertext_file, &mut decrypted_file, key).unwrap();
 
         decrypted_file.rewind().unwrap();
         let mut decrypted_value = Vec::new();
@@ -207,7 +270,7 @@ mod tests {
 
         let file_message = "Hello, encrypted file!";
         let password = "password123";
-        let chunk_size = 1024;
+        let chunk_size = 1 << 10;
 
         let (ciphertext, plaintext) =
             encrypt_decrypt_file(file_message.as_bytes(), password, chunk_size);

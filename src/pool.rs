@@ -1,7 +1,5 @@
 //! A synchronous task pool implementation.
 
-#![allow(dead_code)]
-
 use std::sync::mpsc::{sync_channel, Receiver, SendError, SyncSender};
 use std::thread::spawn;
 

@@ -12,8 +12,8 @@ pub const AES_KEY_SIZE: usize = 32;
 pub const AES_NONCE_SIZE: usize = 12;
 
 /// Encrypts data with AES.
-pub fn aes_encrypt(key: &[u8; AES_KEY_SIZE], plaintext: &[u8]) -> BackupResult<Vec<u8>> {
-    let cipher = Aes256Gcm::new_from_slice(key).unwrap();
+pub fn aes_encrypt(key: [u8; AES_KEY_SIZE], plaintext: &[u8]) -> BackupResult<Vec<u8>> {
+    let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
     let nonce_slice: [u8; AES_NONCE_SIZE] = rand::random();
     let nonce = Nonce::from(nonce_slice);
     let ciphertext = cipher.encrypt(&nonce, plaintext)?;
@@ -25,11 +25,8 @@ pub fn aes_encrypt(key: &[u8; AES_KEY_SIZE], plaintext: &[u8]) -> BackupResult<V
 }
 
 /// Decrypts data with AES.
-pub fn aes_decrypt(
-    key: &[u8; AES_KEY_SIZE],
-    ciphertext_with_nonce: &[u8],
-) -> BackupResult<Vec<u8>> {
-    let cipher = Aes256Gcm::new_from_slice(key).unwrap();
+pub fn aes_decrypt(key: [u8; AES_KEY_SIZE], ciphertext_with_nonce: &[u8]) -> BackupResult<Vec<u8>> {
+    let cipher = Aes256Gcm::new_from_slice(&key).unwrap();
     let (nonce_slice, ciphertext) = ciphertext_with_nonce.split_at(AES_NONCE_SIZE);
     let nonce_slice_sized: [u8; AES_NONCE_SIZE] =
         nonce_slice.try_into().map_err(|_| aes_gcm::Error)?;
@@ -57,8 +54,8 @@ mod tests {
     fn test_aes() {
         let aes_message = "Hello, AES!";
         let key = password_to_key("password123");
-        let aes_encrypted = aes_encrypt(&key, aes_message.as_bytes()).unwrap();
-        let aes_decrypted = aes_decrypt(&key, &aes_encrypted).unwrap();
+        let aes_encrypted = aes_encrypt(key, aes_message.as_bytes()).unwrap();
+        let aes_decrypted = aes_decrypt(key, &aes_encrypted).unwrap();
         let aes_decrypted_message = std::str::from_utf8(&aes_decrypted).unwrap();
         assert_eq!(aes_decrypted_message, aes_message);
         assert_ne!(aes_encrypted, aes_message.as_bytes());
@@ -97,7 +94,7 @@ mod tests {
             spawn(move || {
                 for _ in 0..num_runs {
                     request_sender
-                        .send(move || aes_encrypt(&key, &data).unwrap())
+                        .send(move || aes_encrypt(key, &data).unwrap())
                         .unwrap();
                 }
             });

@@ -12,18 +12,20 @@
 #![allow(clippy::if_not_else)]
 #![allow(clippy::ignored_unit_patterns)]
 #![allow(clippy::needless_borrows_for_generic_args)]
+#![allow(clippy::module_name_repetitions)]
 
 mod backup;
 mod backup_crypto;
 mod crypto;
 mod logger;
+mod memory;
 mod pool;
 mod types;
 
+use crate::memory::*;
 use crate::types::*;
 use clap::{Parser, Subcommand};
 use glob::Pattern;
-use std::hint::black_box;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
@@ -63,6 +65,14 @@ enum Commands {
         /// Note that the same chunk size will be used to extract the backup.
         #[arg(short, long, value_parser = validate_chunk_size, default_value_t = 16)]
         chunk_size_magnitude: u8,
+        /// Number of workers to spawn in the pool that will perform crypto
+        /// operations in parallel. The default pool size is 16. This is
+        /// usually an optimal size, and can speed things up substantially.
+        #[arg(long, value_parser = validate_pool_size, default_value_t = 16)]
+        pool_size: u8,
+        /// Overrides the 1GB memory limit.
+        #[arg(long, value_parser, default_value_t = false)]
+        override_memory_limit: bool,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -79,6 +89,14 @@ enum Commands {
         /// be prompted from standard input.
         #[arg(short, long, value_parser)]
         password: Option<String>,
+        /// Number of workers to spawn in the pool that will perform crypto
+        /// operations in parallel. The default pool size is 16. This is
+        /// usually an optimal size, and can speed things up substantially.
+        #[arg(short, long, value_parser = validate_pool_size, default_value_t = 16)]
+        pool_size: u8,
+        /// Overrides the 1GB memory limit.
+        #[arg(long, value_parser, default_value_t = false)]
+        override_memory_limit: bool,
         /// Debug mode.
         #[arg(short, long, value_parser, default_value_t = false)]
         debug: bool,
@@ -151,9 +169,7 @@ fn validate_output_path(path_str: &str) -> Result<PathBuf, String> {
     }
 }
 
-/// Validates that the provided chunk size is within the accepted range. This
-/// additionally attempts to allocate a chunk of data with the provided size
-/// to ensure the program has enough memory.
+/// Validates that the provided chunk size is within the accepted range.
 fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
     let size = chunk_size.parse::<u8>().map_err(|e| e.to_string())?;
 
@@ -162,14 +178,20 @@ fn validate_chunk_size(chunk_size: &str) -> Result<u8, String> {
     } else if size > 30 {
         Err("Chunk size order of magnitude must be at most 30".to_owned())
     } else {
-        // `black_box` is used to ensure that the compiler does not optimize
-        // the allocation away.
-        let mut chunk = black_box(Vec::<u8>::new());
+        Ok(size)
+    }
+}
 
-        match chunk.try_reserve(1 << size) {
-            Ok(_) => Ok(size),
-            Err(_) => Err(format!("Cannot allocate chunk size of magnitude {size}")),
-        }
+/// Validates that the provided pool size is within the accepted range.
+fn validate_pool_size(pool_size: &str) -> Result<u8, String> {
+    let size = pool_size.parse::<u8>().map_err(|e| e.to_string())?;
+
+    if size < 1 {
+        Err("Pool size must be at least 1".to_owned())
+    } else if size > 64 {
+        Err("Pool size must be at most 64".to_owned())
+    } else {
+        Ok(size)
     }
 }
 
@@ -205,9 +227,14 @@ fn perform_backup(command: Commands) -> Result<String, String> {
             output_path,
             password,
             chunk_size_magnitude,
+            pool_size,
+            override_memory_limit,
             debug,
         } => {
             logger::init(debug).unwrap();
+
+            let chunk_size = 1 << chunk_size_magnitude;
+            check_memory(chunk_size, pool_size, override_memory_limit)?;
 
             match get_password(password, true, true) {
                 Ok(pw) => match backup::backup(
@@ -215,7 +242,8 @@ fn perform_backup(command: Commands) -> Result<String, String> {
                     &exclude_globs,
                     output_path,
                     &pw,
-                    1 << chunk_size_magnitude,
+                    chunk_size,
+                    pool_size,
                 ) {
                     Ok(path) => Ok(format!("Successfully backed up to {}", path.display())),
                     Err(e) => Err(format!("Failed to perform backup: {e}")),
@@ -227,12 +255,18 @@ fn perform_backup(command: Commands) -> Result<String, String> {
             backup_path,
             output_path,
             password,
+            pool_size,
+            override_memory_limit,
             debug,
         } => {
             logger::init(debug).unwrap();
 
+            let chunk_size = backup::backup_chunk_size(&backup_path)
+                .map_err(|e| format!("Failed to perform extraction: {e}"))?;
+            check_memory(chunk_size, pool_size, override_memory_limit)?;
+
             match get_password(password, false, false) {
-                Ok(pw) => match backup::extract(backup_path, output_path, &pw) {
+                Ok(pw) => match backup::extract(backup_path, output_path, &pw, pool_size) {
                     Ok(path) => Ok(format!("Successfully extracted to {}", path.display())),
                     Err(e) => Err(if let BackupError::CryptoError(_) = e {
                         format!("Failed to perform extraction: {e}.\nThis usually means that the provided password was incorrect, and cannot be used to extract the backup.")

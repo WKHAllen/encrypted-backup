@@ -11,9 +11,6 @@ use std::thread::scope;
 /// The length of the size portion of each chunk of data.
 pub const LEN_SIZE: usize = 5;
 
-/// The number of workers to spawn in a task channel.
-pub const TASK_CHANNEL_SIZE: usize = 16;
-
 /// Encodes the size portion of a section of data.
 pub fn encode_section_size(size: usize) -> [u8; LEN_SIZE] {
     (0..LEN_SIZE)
@@ -30,6 +27,23 @@ pub fn decode_section_size(encoded_size: &[u8; LEN_SIZE]) -> usize {
     encoded_size
         .iter()
         .fold(0, |size, val| (size << 8) + usize::from(*val))
+}
+
+/// Gets the chunk size of a given backup file.
+pub fn get_chunk_size(path: impl AsRef<Path>) -> io::Result<usize> {
+    let mut file = File::open(path)?;
+    let mut size_buffer = [0u8; LEN_SIZE];
+
+    let n = file.read(&mut size_buffer)?;
+
+    if n != LEN_SIZE {
+        return Err(io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "not enough bytes to read from backup file",
+        ));
+    }
+
+    Ok(decode_section_size(&size_buffer))
 }
 
 /// Reads a section of data from a file.
@@ -73,8 +87,9 @@ fn encrypt_file(
     dest: &mut File,
     key: [u8; AES_KEY_SIZE],
     chunk_size: usize,
+    pool_size: u8,
 ) -> BackupResult<()> {
-    let (task_request, task_response) = task_channel(TASK_CHANNEL_SIZE);
+    let (task_request, task_response) = task_channel(pool_size.into());
 
     scope(|s| {
         let read_handle = s.spawn(move || {
@@ -125,8 +140,13 @@ fn encrypt_file(
 }
 
 /// Decrypts a file in chunks.
-fn decrypt_file(src: &mut File, dest: &mut File, key: [u8; AES_KEY_SIZE]) -> BackupResult<()> {
-    let (task_request, task_response) = task_channel(TASK_CHANNEL_SIZE);
+fn decrypt_file(
+    src: &mut File,
+    dest: &mut File,
+    key: [u8; AES_KEY_SIZE],
+    pool_size: u8,
+) -> BackupResult<()> {
+    let (task_request, task_response) = task_channel(pool_size.into());
 
     scope(|s| {
         let read_handle = s.spawn(move || {
@@ -175,19 +195,24 @@ pub fn encrypt_backup(
     dest_path: impl AsRef<Path>,
     key: [u8; AES_KEY_SIZE],
     chunk_size: usize,
+    pool_size: u8,
 ) -> BackupResult<()> {
     let mut src = File::open(src_path)?;
     let mut dest = File::create(dest_path)?;
 
-    encrypt_file(&mut src, &mut dest, key, chunk_size)
+    encrypt_file(&mut src, &mut dest, key, chunk_size, pool_size)
 }
 
 /// Decrypts a backup file in chunks.
-pub fn decrypt_backup(src_path: impl AsRef<Path>, key: [u8; AES_KEY_SIZE]) -> BackupResult<File> {
+pub fn decrypt_backup(
+    src_path: impl AsRef<Path>,
+    key: [u8; AES_KEY_SIZE],
+    pool_size: u8,
+) -> BackupResult<File> {
     let mut src = File::open(src_path)?;
     let mut dest = tempfile::tempfile()?;
 
-    decrypt_file(&mut src, &mut dest, key)?;
+    decrypt_file(&mut src, &mut dest, key, pool_size)?;
 
     Ok(dest)
 }
@@ -202,7 +227,12 @@ mod tests {
         (random::<usize>() % (max - min)) + min
     }
 
-    fn encrypt_decrypt_file(data: &[u8], password: &str, chunk_size: usize) -> (Vec<u8>, Vec<u8>) {
+    fn encrypt_decrypt_file(
+        data: &[u8],
+        password: &str,
+        chunk_size: usize,
+        pool_size: u8,
+    ) -> (Vec<u8>, Vec<u8>) {
         let key = password_to_key(password);
 
         let mut plaintext_file = tempfile::tempfile().unwrap();
@@ -210,7 +240,14 @@ mod tests {
         plaintext_file.rewind().unwrap();
 
         let mut ciphertext_file = tempfile::tempfile().unwrap();
-        encrypt_file(&mut plaintext_file, &mut ciphertext_file, key, chunk_size).unwrap();
+        encrypt_file(
+            &mut plaintext_file,
+            &mut ciphertext_file,
+            key,
+            chunk_size,
+            pool_size,
+        )
+        .unwrap();
 
         plaintext_file.rewind().unwrap();
         let mut plaintext_value = Vec::new();
@@ -222,7 +259,7 @@ mod tests {
         ciphertext_file.rewind().unwrap();
 
         let mut decrypted_file = tempfile::tempfile().unwrap();
-        decrypt_file(&mut ciphertext_file, &mut decrypted_file, key).unwrap();
+        decrypt_file(&mut ciphertext_file, &mut decrypted_file, key, pool_size).unwrap();
 
         decrypted_file.rewind().unwrap();
         let mut decrypted_value = Vec::new();
@@ -271,9 +308,10 @@ mod tests {
         let file_message = "Hello, encrypted file!";
         let password = "password123";
         let chunk_size = 1 << 10;
+        let pool_size = 16;
 
         let (ciphertext, plaintext) =
-            encrypt_decrypt_file(file_message.as_bytes(), password, chunk_size);
+            encrypt_decrypt_file(file_message.as_bytes(), password, chunk_size, pool_size);
         assert_ne!(&ciphertext, file_message.as_bytes());
         assert_eq!(&plaintext, file_message.as_bytes());
         assert_ne!(plaintext, ciphertext);
@@ -282,7 +320,8 @@ mod tests {
         let mut large_data = vec![0u8; large_data_size];
         large_data.try_fill(&mut rng).unwrap();
 
-        let (ciphertext, plaintext) = encrypt_decrypt_file(&large_data, password, chunk_size);
+        let (ciphertext, plaintext) =
+            encrypt_decrypt_file(&large_data, password, chunk_size, pool_size);
         assert_ne!(ciphertext, large_data);
         assert_eq!(plaintext, large_data);
         assert_ne!(plaintext, ciphertext);

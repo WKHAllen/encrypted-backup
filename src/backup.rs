@@ -138,6 +138,7 @@ pub fn backup(
     output_path: impl AsRef<Path>,
     password: &str,
     chunk_size: usize,
+    pool_size: u8,
 ) -> BackupResult<PathBuf> {
     info!("Validating backup");
 
@@ -177,7 +178,7 @@ pub fn backup(
     let key = password_to_key(password);
 
     // Read and encrypt the tar archive
-    encrypt_backup(tar_path, &output_path, key, chunk_size)?;
+    encrypt_backup(tar_path, &output_path, key, chunk_size, pool_size)?;
 
     // Delete temporary tar file
     fs::remove_file(tar_path)?;
@@ -193,6 +194,7 @@ pub fn extract(
     path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
     password: &str,
+    pool_size: u8,
 ) -> BackupResult<PathBuf> {
     info!("Validating extraction");
 
@@ -205,7 +207,7 @@ pub fn extract(
     let key = password_to_key(password);
 
     // Decrypt the backup
-    let tar_file = decrypt_backup(&path, key)?;
+    let tar_file = decrypt_backup(&path, key, pool_size)?;
 
     info!("Extracting decrypted backup");
 
@@ -217,6 +219,11 @@ pub fn extract(
 
     // Return the output directory path
     Ok(output_path.as_ref().to_path_buf())
+}
+
+/// Gets the chunk size of a given backup file.
+pub fn backup_chunk_size(backup_path: impl AsRef<Path>) -> io::Result<usize> {
+    get_chunk_size(backup_path)
 }
 
 /// Backup tests.
@@ -353,6 +360,7 @@ mod tests {
         let extract_output_root = extract_output_path.join("encrypted-backup");
         let password = "password123";
         let chunk_size = 1024;
+        let pool_size = 16;
 
         backup(
             &include_paths,
@@ -360,9 +368,16 @@ mod tests {
             &backup_output_path,
             password,
             chunk_size,
+            pool_size,
         )
         .unwrap();
-        extract(&backup_output_path, &extract_output_path, password).unwrap();
+        extract(
+            &backup_output_path,
+            &extract_output_path,
+            password,
+            pool_size,
+        )
+        .unwrap();
 
         verify_identical_trees(
             &root,
@@ -391,6 +406,7 @@ mod tests {
         let extract_output_root = extract_output_path.join(src_path.file_name().unwrap());
         let password = "password123";
         let chunk_size = 1024;
+        let pool_size = 16;
 
         {
             fs::create_dir(&src_path).unwrap();
@@ -404,9 +420,16 @@ mod tests {
             &backup_output_path,
             password,
             chunk_size,
+            pool_size,
         )
         .unwrap();
-        extract(&backup_output_path, &extract_output_path, password).unwrap();
+        extract(
+            &backup_output_path,
+            &extract_output_path,
+            password,
+            pool_size,
+        )
+        .unwrap();
 
         verify_identical_trees(
             &src_path,

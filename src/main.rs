@@ -13,6 +13,7 @@
 #![allow(clippy::ignored_unit_patterns)]
 #![allow(clippy::needless_borrows_for_generic_args)]
 #![allow(clippy::module_name_repetitions)]
+#![allow(clippy::multiple_crate_versions)]
 
 mod backup;
 mod backup_crypto;
@@ -21,6 +22,7 @@ mod logger;
 mod memory;
 mod pool;
 mod types;
+mod util;
 
 use crate::memory::*;
 use crate::types::*;

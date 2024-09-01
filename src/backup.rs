@@ -3,14 +3,14 @@
 use crate::backup_crypto::*;
 use crate::crypto::*;
 use crate::types::*;
+use crate::util::*;
 use glob::Pattern;
 use log::info;
 use std::collections::HashSet;
-use std::fs;
+use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::str;
-use tempfile::NamedTempFile;
 
 /// Checks if a path is excluded based on a list of globs.
 fn glob_excluded(path: impl AsRef<Path>, exclude_globs: &[Pattern]) -> bool {
@@ -151,9 +151,9 @@ pub fn backup(
     info!("Beginning backup");
 
     // Create the tar archive
-    let tar_file = NamedTempFile::new()?;
-    let tar_path = tar_file.path();
-    let mut archive = tar::Builder::new(&tar_file);
+    let tar_path = tmp_file_for(&output_path);
+    let tar_file = File::create_new(&tar_path)?;
+    let mut archive = tar::Builder::new(tar_file);
 
     // Add each include path to the archive
     for include_path in include_paths {
@@ -178,7 +178,7 @@ pub fn backup(
     let key = password_to_key(password);
 
     // Read and encrypt the tar archive
-    encrypt_backup(tar_path, &output_path, key, chunk_size, pool_size)?;
+    encrypt_backup(&tar_path, &output_path, key, chunk_size, pool_size)?;
 
     // Delete temporary tar file
     fs::remove_file(tar_path)?;
@@ -207,13 +207,16 @@ pub fn extract(
     let key = password_to_key(password);
 
     // Decrypt the backup
-    let tar_file = decrypt_backup(&path, key, pool_size)?;
+    let (tar_path, tar_file) = decrypt_backup(&path, key, pool_size)?;
 
     info!("Extracting decrypted backup");
 
     // Extract the tar file
     let mut archive = tar::Archive::new(tar_file);
     archive.unpack(&output_path)?;
+
+    // Delete temporary tar file
+    fs::remove_file(tar_path)?;
 
     info!("Extraction complete");
 

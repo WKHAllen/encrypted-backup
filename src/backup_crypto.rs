@@ -3,9 +3,10 @@
 use crate::crypto::*;
 use crate::pool::*;
 use crate::types::*;
+use crate::util::*;
 use std::fs::File;
 use std::io::{self, Read, Seek, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::thread::scope;
 
 /// The length of the size portion of each chunk of data.
@@ -208,13 +209,15 @@ pub fn decrypt_backup(
     src_path: impl AsRef<Path>,
     key: [u8; AES_KEY_SIZE],
     pool_size: u8,
-) -> BackupResult<File> {
-    let mut src = File::open(src_path)?;
-    let mut dest = tempfile::tempfile()?;
+) -> BackupResult<(PathBuf, File)> {
+    let mut src = File::open(&src_path)?;
+
+    let dest_path = tmp_file_for(&src_path);
+    let mut dest = File::create_new(&dest_path)?;
 
     decrypt_file(&mut src, &mut dest, key, pool_size)?;
 
-    Ok(dest)
+    Ok((dest_path, dest))
 }
 
 /// Backup crypto tests.

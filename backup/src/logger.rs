@@ -27,7 +27,11 @@ impl log::Log for BackupLogger {
 static LOGGER: BackupLogger = BackupLogger;
 
 /// Initializes logging.
-pub fn init(debug: bool) -> Result<(), SetLoggerError> {
+///
+/// # Errors
+///
+/// This will return an error if the logger has already been initialized.
+pub fn init_logger(debug: bool) -> Result<(), SetLoggerError> {
     let max_level = if debug {
         LevelFilter::Debug
     } else {

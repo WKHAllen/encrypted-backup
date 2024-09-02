@@ -4,7 +4,7 @@ build:
 	cargo build
 
 run:
-	cargo run
+	cargo run -p ui
 
 test:
 	cargo test -- --nocapture

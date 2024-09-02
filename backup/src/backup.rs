@@ -24,16 +24,14 @@ fn glob_excluded(path: impl AsRef<Path>, exclude_globs: &[Pattern]) -> bool {
 }
 
 /// Gets the last component of a path.
-fn last_path_component(path: impl AsRef<Path>) -> Option<String> {
-    Some(
-        path.as_ref()
-            .components()
-            .last()?
-            .as_os_str()
-            .to_str()
-            .unwrap()
-            .to_owned(),
-    )
+fn last_path_component(path: &Path) -> BackupResult<&str> {
+    Ok(path
+        .components()
+        .last()
+        .ok_or_else(|| BackupError::InvalidIncludePath(path.to_path_buf()))?
+        .as_os_str()
+        .to_str()
+        .unwrap())
 }
 
 /// Checks that there are no duplicate names in the paths included in a backup.
@@ -44,11 +42,11 @@ fn validate_no_duplicate_include_names(include_paths: &[impl AsRef<Path>]) -> Ba
     // Check all include paths for duplicates
     for include_path in include_paths {
         // The "name" of the include path is determined by the last component of its path
-        let include_name = last_path_component(include_path).unwrap();
+        let include_name = last_path_component(include_path.as_ref())?;
 
         // If an include path with the same name is already in the set, then we have a duplicate
         if include_set.contains(&include_name) {
-            return Err(BackupError::DuplicateIncludeName(include_name));
+            return Err(BackupError::DuplicateIncludeName(include_name.to_owned()));
         }
 
         include_set.insert(include_name);
@@ -132,6 +130,11 @@ fn append_to_archive<T: Write>(
 }
 
 /// Backs up and encrypts a set of paths.
+///
+/// # Errors
+///
+/// This will return an error if validation fails, or if any operation involved
+/// in the backup fails.
 pub fn backup(
     include_paths: &[impl AsRef<Path>],
     exclude_globs: &[Pattern],
@@ -148,6 +151,18 @@ pub fn backup(
     // Make sure output file does not already exist
     validate_path_does_not_exist(&output_path, PathType::Any)?;
 
+    // Validate include paths and get their names
+    let include_paths_with_names = include_paths.iter().try_fold(
+        Vec::new(),
+        |mut include_paths_with_names, include_path| {
+            include_paths_with_names.push((
+                include_path.as_ref(),
+                last_path_component(include_path.as_ref())?,
+            ));
+            Ok::<_, BackupError>(include_paths_with_names)
+        },
+    )?;
+
     info!("Beginning backup");
 
     // Create the tar archive
@@ -156,10 +171,8 @@ pub fn backup(
     let mut archive = tar::Builder::new(tar_file);
 
     // Add each include path to the archive
-    for include_path in include_paths {
-        info!("Backing up '{}'", include_path.as_ref().display());
-
-        let include_name = last_path_component(include_path).unwrap();
+    for (include_path, include_name) in include_paths_with_names {
+        info!("Backing up '{}'", include_path.display());
 
         append_to_archive(
             &mut archive,
@@ -190,6 +203,11 @@ pub fn backup(
 }
 
 /// Extracts an encrypted backup.
+///
+/// # Errors
+///
+/// This will return an error if validation fails, or if any operation involved
+/// in the extraction fails.
 pub fn extract(
     path: impl AsRef<Path>,
     output_path: impl AsRef<Path>,
@@ -225,6 +243,10 @@ pub fn extract(
 }
 
 /// Gets the chunk size of a given backup file.
+///
+/// # Errors
+///
+/// This will return an error if an IO operation fails.
 pub fn backup_chunk_size(backup_path: impl AsRef<Path>) -> io::Result<usize> {
     get_chunk_size(backup_path)
 }

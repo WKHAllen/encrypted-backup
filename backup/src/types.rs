@@ -14,6 +14,9 @@ pub enum BackupError {
     /// A cryptographic error.
     #[error("cryptographic error: {0}")]
     CryptoError(aes_gcm::Error),
+    /// An include path is invalid.
+    #[error("invalid include path: {0}")]
+    InvalidIncludePath(PathBuf),
     /// A duplicate include path name was encountered.
     #[error("duplicate include path name: {0}")]
     DuplicateIncludeName(String),

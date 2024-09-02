@@ -1,0 +1,13 @@
+[package]
+name = "ui"
+version = "0.1.0"
+license = "MIT"
+description = "A tool to securely back up files and directories."
+repository = "https://github.com/WKHAllen/encrypted-backup"
+readme = "../README.md"
+keywords = ["cli", "crypto", "backup"]
+categories = ["command-line-utilities", "cryptography", "filesystem"]
+edition = "2021"
+
+[dependencies]
+backup = { path = "../backup" }

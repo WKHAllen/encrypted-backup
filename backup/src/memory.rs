@@ -30,6 +30,11 @@ fn format_bytes(size: usize) -> String {
 /// Checks roughly how much memory will be allocated during the backup or
 /// extraction. This will prompt for confirmation if the threshold is exceeded
 /// and confirmation is not overridden.
+///
+/// # Errors
+///
+/// This will return an error if the suggested memory limit is exceeded and is
+/// not overridden.
 pub fn check_memory(chunk_size: usize, pool_size: u8, override_limit: bool) -> Result<(), String> {
     // `total_pool_size` is a necessary transformation of `pool_size` since
     // the internals of the task pool can cause up to `2n+3` chunks to be in

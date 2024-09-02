@@ -1,4 +1,4 @@
-//! A command line tool to securely back up files and directories.
+//! A tool to securely back up files and directories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -15,17 +15,7 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::multiple_crate_versions)]
 
-mod backup;
-mod backup_crypto;
-mod crypto;
-mod logger;
-mod memory;
-mod pool;
-mod types;
-mod util;
-
-use crate::memory::*;
-use crate::types::*;
+use backup::*;
 use clap::{Parser, Subcommand};
 use glob::Pattern;
 use std::path::{Path, PathBuf};
@@ -233,7 +223,7 @@ fn perform_backup(command: Commands) -> Result<String, String> {
             override_memory_limit,
             debug,
         } => {
-            logger::init(debug).unwrap();
+            init_logger(debug).unwrap();
 
             let chunk_size = 1 << chunk_size_magnitude;
             check_memory(chunk_size, pool_size, override_memory_limit)?;
@@ -261,7 +251,7 @@ fn perform_backup(command: Commands) -> Result<String, String> {
             override_memory_limit,
             debug,
         } => {
-            logger::init(debug).unwrap();
+            init_logger(debug).unwrap();
 
             let chunk_size = backup::backup_chunk_size(&backup_path)
                 .map_err(|e| format!("Failed to perform extraction: {e}"))?;

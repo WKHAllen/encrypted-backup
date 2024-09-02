@@ -15,6 +15,11 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::multiple_crate_versions)]
 
+mod components;
+
+use crate::components::App;
+use dioxus::prelude::*;
+
 fn main() {
-    println!("Hello, world!");
+    launch_desktop(App);
 }

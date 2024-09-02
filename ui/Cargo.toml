@@ -11,3 +11,4 @@ edition = "2021"
 
 [dependencies]
 backup = { path = "../backup" }
+dioxus = { version = "0.5", features = ["desktop"] }

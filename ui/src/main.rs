@@ -14,8 +14,19 @@
 #![allow(clippy::needless_borrows_for_generic_args)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::multiple_crate_versions)]
+#![allow(clippy::option_if_let_else)]
+#![allow(clippy::derive_partial_eq_without_eq)]
+#![allow(clippy::future_not_send)]
+#![allow(non_snake_case)]
+// TODO: remove later
+#![allow(dead_code)]
+// TODO: remove later
+#![allow(unused_imports)]
 
+mod classes;
 mod components;
+mod icons;
+mod services;
 
 use crate::components::App;
 use dioxus::prelude::*;

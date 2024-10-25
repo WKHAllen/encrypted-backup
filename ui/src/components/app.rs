@@ -1,15 +1,23 @@
 //! Root-level application component.
 
+use crate::components::Config;
 use dioxus::prelude::*;
+
+/// The global stylesheet asset.
+const STYLES: &str = include_str!("../../assets/css/main.css");
 
 /// The root application component.
 #[component]
 pub fn App() -> Element {
-    let mut count = use_signal(|| 0);
-
     rsx! {
-        div { "Count: {count}" }
-        button { onclick: move |_| count += 1, "+" }
-        button { onclick: move |_| count -= 1, "-" }
+        div {
+            class: "app",
+
+            style {
+                "{STYLES}"
+            }
+
+            Config {}
+        }
     }
 }

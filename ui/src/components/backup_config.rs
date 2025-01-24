@@ -1,21 +1,46 @@
 //! Backup operation configuration.
 
+use super::{FileSelect, IncludePathsSelect};
 use dioxus::prelude::*;
 
 /// The backup operation configuration component.
 #[component]
 pub fn BackupConfig() -> Element {
+    let include_paths = use_signal(Vec::new);
+    let output_path = use_signal(|| None);
+    let output_path_error = use_signal(|| None);
+
     rsx! {
         div {
             class: "backup-config",
 
-            "Backup configuration"
+            // BASIC CONFIG OPTIONS
+            h2 {
+                class: "config-title",
+                "Basic configuration"
+            }
 
-            // BASIC CONFIG OPTIONS:
-            // include_paths: Vec<PathBuf>,
-            // output_path: PathBuf,
+            // include_paths: Vec<PathBuf>
+            IncludePathsSelect {
+                state: include_paths,
+            }
 
-            // ADVANCED CONFIG OPTIONS:
+            // output_path: PathBuf
+            FileSelect {
+                state: output_path,
+                label: "Output path",
+                info: "This is the directory in which the backup file will be created",
+                empty_text: "No output path selected",
+                directory: true,
+                error: output_path_error(),
+            }
+
+            // ADVANCED CONFIG OPTIONS
+            h2 {
+                class: "config-title",
+                "Advanced configuration"
+            }
+
             // exclude_globs: Vec<Pattern>,
             // chunk_size_magnitude: u8,
             // pool_size: u8,

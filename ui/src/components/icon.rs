@@ -15,7 +15,7 @@ pub fn Icon(
 
     rsx! {
         div {
-            class: "{class}",
+            class: class,
             dangerous_inner_html: data
         }
     }

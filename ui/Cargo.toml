@@ -13,5 +13,5 @@ edition = "2021"
 backup = { path = "../backup" }
 dioxus = { version = "0.5", features = ["desktop"] }
 home = "0.5"
-sysinfo = "0.32"
+rand = "0.8"
 tokio = { version = "1.40", features = ["full"] }

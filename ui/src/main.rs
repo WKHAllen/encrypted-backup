@@ -25,12 +25,26 @@
 
 mod classes;
 mod components;
+mod constants;
+mod hooks;
 mod icons;
 mod services;
 
 use crate::components::App;
+use crate::constants::*;
+use dioxus::desktop::{Config, WindowBuilder};
 use dioxus::prelude::*;
 
 fn main() {
-    launch_desktop(App);
+    let window_config = WindowBuilder::new()
+        .with_always_on_bottom(false)
+        .with_always_on_top(false)
+        .with_title(WINDOW_TITLE);
+
+    let launch_config = Config::new()
+        .with_menu(None)
+        .with_disable_context_menu(!DEBUG)
+        .with_window(window_config);
+
+    LaunchBuilder::new().with_cfg(launch_config).launch(App);
 }

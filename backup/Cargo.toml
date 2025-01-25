@@ -16,9 +16,9 @@ glob = "0.3"
 log = "0.4"
 sha2 = "0.10"
 tar = "0.4"
-thiserror = "1.0"
+thiserror = "2.0"
 
 [dev-dependencies]
-project-root = "0.2.2"
+project-root = "0.2"
 rand = "0.8"
-tempfile = "3"
+tempfile = "3.15"

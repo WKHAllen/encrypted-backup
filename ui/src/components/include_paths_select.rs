@@ -1,6 +1,6 @@
 //! UI component for include path selection.
 
-use super::{FileDialog, Icon, IconButton};
+use super::{FileDialog, IconButton};
 use crate::classes::*;
 use crate::icons::{ARROW_DOWN, ARROW_UP, PLUS, XMARK};
 use dioxus::prelude::*;

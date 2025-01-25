@@ -1,5 +1,5 @@
 [package]
-name = "ui"
+name = "macros"
 version = "0.1.0"
 license = "MIT"
 description = "A tool to securely back up files and directories."
@@ -9,10 +9,10 @@ keywords = ["cli", "crypto", "backup"]
 categories = ["command-line-utilities", "cryptography", "filesystem"]
 edition = "2021"
 
+[lib]
+proc-macro = true
+
 [dependencies]
-backup = { path = "../backup" }
-dioxus = { version = "0.5", features = ["desktop"] }
-home = "0.5"
-macros = { path = "../macros" }
-rand = "0.8"
-tokio = { version = "1.40", features = ["full"] }
+convert_case = "0.7"
+quote = "1.0"
+syn = "2.0"

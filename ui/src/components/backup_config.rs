@@ -1,6 +1,6 @@
 //! Backup operation configuration.
 
-use super::{FileSelect, IncludePathsSelect};
+use super::{ExcludeGlobs, FileSelect, IncludePathsSelect};
 use dioxus::prelude::*;
 
 /// The backup operation configuration component.
@@ -9,6 +9,7 @@ pub fn BackupConfig() -> Element {
     let include_paths = use_signal(Vec::new);
     let output_path = use_signal(|| None);
     let output_path_error = use_signal(|| None);
+    let exclude_globs = use_signal(Vec::new);
 
     rsx! {
         div {
@@ -42,6 +43,10 @@ pub fn BackupConfig() -> Element {
             }
 
             // exclude_globs: Vec<Pattern>,
+            ExcludeGlobs {
+                state: exclude_globs,
+            }
+
             // chunk_size_magnitude: u8,
             // pool_size: u8,
 

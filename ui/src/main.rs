@@ -17,6 +17,7 @@
 #![allow(clippy::option_if_let_else)]
 #![allow(clippy::derive_partial_eq_without_eq)]
 #![allow(clippy::future_not_send)]
+#![allow(clippy::comparison_chain)]
 #![allow(non_snake_case)]
 // TODO: remove later
 #![allow(unused_imports)]

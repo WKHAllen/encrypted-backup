@@ -526,3 +526,93 @@ input[type="file"].file-select-input {
   font-size: 0.9em;
   color: var(--text-color-disabled);
 }
+
+.exclude-globs-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-small);
+}
+
+.exclude-globs {
+  display: flex;
+  flex-direction: column;
+  border: var(--standard-border);
+  border-radius: var(--border-radius-medium);
+}
+
+.exclude-globs-actions {
+  flex-grow: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  border-bottom: var(--standard-border);
+  padding: var(--padding-small);
+}
+
+.exclude-globs-globs {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.exclude-globs-glob {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  padding: 2px;
+  background-color: var(--background-color-darker);
+  transition: background-color 0.1s ease;
+}
+
+.exclude-globs-glob:not(:last-child) {
+  border-bottom: var(--standard-border);
+}
+
+.exclude-globs-glob-input {
+  flex-grow: 1;
+  font-size: 0.8em;
+  padding: 2px 4px;
+  background-color: var(--background-color-darker);
+  color: var(--text-color);
+  border: none;
+  outline: none;
+  border-radius: 0;
+}
+
+.exclude-globs-glob-input.exclude-globs-glob-input-invalid {
+  color: var(--error-color);
+}
+
+.exclude-globs-glob-remove {
+  flex-grow: 0;
+  opacity: 0;
+}
+
+.exclude-globs-glob:hover .exclude-globs-glob-remove {
+  opacity: 1;
+}
+
+.exclude-globs-glob.exclude-globs-glob-selected {
+  background-color: var(--background-color-lighter);
+}
+
+.exclude-globs-glob.exclude-globs-glob-selected .exclude-globs-glob-input {
+  background-color: var(--background-color-lighter);
+}
+
+.exclude-globs-globs-empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  font-size: 0.9em;
+  color: var(--text-color-disabled);
+}
+
+.exclude-globs-info {
+  color: var(--text-color-disabled);
+  font-size: var(--standard-info-size);
+}

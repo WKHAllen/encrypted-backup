@@ -12,6 +12,7 @@ edition = "2021"
 [dependencies]
 backup = { path = "../backup" }
 dioxus = { version = "0.6", features = ["desktop"] }
+glob = "0.3"
 home = "0.5"
 macros = { path = "../macros" }
 rand = "0.8"

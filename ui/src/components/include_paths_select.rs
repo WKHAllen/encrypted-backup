@@ -96,6 +96,14 @@ pub fn IncludePathsSelect(
                                     class: "include-paths-select-path-remove",
                                     onclick: move |_| {
                                         state.with_mut(|paths| paths.remove(index));
+
+                                        if let Some(selected) = selected_index() {
+                                            if selected == index {
+                                                selected_index.set(None);
+                                            } else if selected > index {
+                                                selected_index.set(Some(selected - 1));
+                                            }
+                                        }
                                     }
                                 }
                             }

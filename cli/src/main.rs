@@ -58,9 +58,10 @@ enum Commands {
         #[arg(short, long, value_parser = validate_chunk_size, default_value_t = 16)]
         chunk_size_magnitude: u8,
         /// Number of workers to spawn in the pool that will perform crypto
-        /// operations in parallel. The default pool size is 16. This is
-        /// usually an optimal size, and can speed things up substantially.
-        #[arg(long, value_parser = validate_pool_size, default_value_t = 16)]
+        /// operations in parallel. The default pool size is 4. The optimal size
+        /// is typically closer to 16, but higher numbers will be more taxing on
+        /// the CPU.
+        #[arg(long, value_parser = validate_pool_size, default_value_t = 4)]
         pool_size: u8,
         /// Overrides the 1GB memory limit.
         #[arg(long, value_parser, default_value_t = false)]

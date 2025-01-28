@@ -1,6 +1,7 @@
 //! Backup operation configuration.
 
-use super::{ExcludeGlobs, FileSelect, IncludePathsSelect};
+use super::{ExcludeGlobs, FileSelect, IncludePathsSelect, Slider};
+use crate::format::*;
 use dioxus::prelude::*;
 
 /// The backup operation configuration component.
@@ -10,6 +11,8 @@ pub fn BackupConfig() -> Element {
     let output_path = use_signal(|| None);
     let output_path_error = use_signal(|| None);
     let exclude_globs = use_signal(Vec::new);
+    let chunk_size_magnitude = use_signal(|| 16u8);
+    let pool_size = use_signal(|| 4u8);
 
     rsx! {
         div {
@@ -48,7 +51,24 @@ pub fn BackupConfig() -> Element {
             }
 
             // chunk_size_magnitude: u8,
+            Slider {
+                state: chunk_size_magnitude,
+                label: "Chunk size magnitude",
+                info: format!("The backup will be encoded in chunks of size {}", format_size(1 << chunk_size_magnitude())),
+                min: 12,
+                max: 28,
+                step: 1,
+            }
+
             // pool_size: u8,
+            Slider {
+                state: pool_size,
+                label: "Pool size",
+                info: "This determines how many workers to spawn in a pool that will perform cryptographic operations in parallel",
+                min: 1,
+                max: 24,
+                step: 1,
+            }
 
             // PROMPT IN POPUP ON BACKUP START
             // password: Option<String>,
@@ -58,6 +78,8 @@ pub fn BackupConfig() -> Element {
 
             // REMOVE OPTION AND ALWAYS SHOW DEBUG LOG:
             // debug: bool,
+
+            // DISPLAY ESTIMATED MEMORY USAGE
         }
     }
 }

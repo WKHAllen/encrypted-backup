@@ -616,3 +616,52 @@ input[type="file"].file-select-input {
   color: var(--text-color-disabled);
   font-size: var(--standard-info-size);
 }
+
+.slider-container {
+  padding: var(--form-padding);
+  display: flex;
+  flex-direction: column;
+  gap: var(--padding-small);
+}
+
+.slider-label {
+  color: var(--text-color);
+  font-size: var(--standard-label-size);
+}
+
+.slider-container-disabled .slider-label {
+  color: var(--text-color-disabled);
+}
+
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background-color: white;
+  outline: none;
+  border-radius: 100vmin;
+  cursor: pointer;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background-color: var(--accent-background-color);
+  border-radius: 100vmin;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background-color: var(--accent-background-color);
+  border-radius: 100vmin;
+  cursor: pointer;
+}
+
+.info {
+  color: var(--text-color-disabled);
+  font-size: var(--standard-info-size);
+}

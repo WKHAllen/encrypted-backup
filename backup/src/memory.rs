@@ -12,8 +12,8 @@ fn floor_to(n: f64, decimals: u8) -> f64 {
 
 /// Stringifies a number representing a number of bytes in human-readable
 /// form.
-#[allow(clippy::cast_precision_loss)]
-fn format_bytes(size: usize) -> String {
+#[allow(clippy::must_use_candidate, clippy::cast_precision_loss)]
+pub fn format_bytes(size: usize) -> String {
     if size == 1 {
         "1 byte".to_owned()
     } else if size < (1 << 10) {
@@ -27,6 +27,20 @@ fn format_bytes(size: usize) -> String {
     }
 }
 
+/// Estimates the memory usage in bytes based on the configured chunk size and
+/// pool size.
+#[allow(clippy::must_use_candidate)]
+pub fn estimated_memory_usage(chunk_size: usize, pool_size: u8) -> usize {
+    // `total_pool_size` is a necessary transformation of `pool_size` since
+    // the internals of the task pool can cause up to `2n+3` chunks to be in
+    // memory at any given time, where `n` is the pool size. In this case, we
+    // are using `2n+5` since there will be one additional memory chunk at
+    // either end, one for the next request and one for the most recent
+    // response.
+    let total_pool_size = usize::from(pool_size) * 2 + 5;
+    chunk_size * total_pool_size
+}
+
 /// Checks roughly how much memory will be allocated during the backup or
 /// extraction. This will prompt for confirmation if the threshold is exceeded
 /// and confirmation is not overridden.
@@ -36,14 +50,7 @@ fn format_bytes(size: usize) -> String {
 /// This will return an error if the suggested memory limit is exceeded and is
 /// not overridden.
 pub fn check_memory(chunk_size: usize, pool_size: u8, override_limit: bool) -> Result<(), String> {
-    // `total_pool_size` is a necessary transformation of `pool_size` since
-    // the internals of the task pool can cause up to `2n+3` chunks to be in
-    // memory at any given time, where `n` is the pool size. In this case, we
-    // are using `2n+5` since there will be one additional memory chunk at
-    // either end, one for the next request and one for the most recent
-    // response.
-    let total_pool_size = usize::from(pool_size) * 2 + 5;
-    let required_bytes = chunk_size * total_pool_size;
+    let required_bytes = estimated_memory_usage(chunk_size, pool_size);
 
     if required_bytes > MEMORY_LIMIT {
         if !override_limit {

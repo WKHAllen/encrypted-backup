@@ -403,8 +403,36 @@ h1 {
   max-width: var(--config-max-width);
 }
 
+.config-title-container {
+  display: flex;
+}
+
 .config-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  cursor: pointer;
+}
+
+.config-title-text {
   font-weight: 400;
+}
+
+.config-section-icon {
+  transform: rotate(90deg);
+  transition: transform 0.1s ease;
+}
+
+.config-section-icon.config-section-icon-open {
+  transform: rotate(180deg);
+}
+
+.config-section {
+  display: none;
+}
+
+.config-section.config-section-open {
+  display: unset;
 }
 
 .file-select-container {
@@ -664,4 +692,18 @@ input[type="file"].file-select-input {
 .info {
   color: var(--text-color-disabled);
   font-size: var(--standard-info-size);
+}
+
+.estimated-memory-usage-message {
+  color: var(--text-color-disabled);
+  font-size: var(--standard-info-size);
+}
+
+.estimated-memory-usage-amount {
+  color: var(--text-color);
+  font-size: var(--standard-info-size);
+}
+
+.estimated-memory-usage-amount.estimated-memory-usage-amount-large {
+  color: var(--error-color);
 }

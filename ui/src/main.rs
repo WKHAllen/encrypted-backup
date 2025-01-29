@@ -25,7 +25,6 @@
 mod classes;
 mod components;
 mod constants;
-mod format;
 mod hooks;
 mod icons;
 mod number;

@@ -92,12 +92,12 @@ pub fn BackupConfig() -> Element {
             div {
                 class: classes!("config-section", advanced_config_open().then_some("config-section-open")),
 
-                // exclude_globs: Vec<Pattern>,
+                // exclude_globs: Vec<Pattern>
                 ExcludeGlobs {
                     state: exclude_globs,
                 }
 
-                // chunk_size_magnitude: u8,
+                // chunk_size_magnitude: u8
                 Slider {
                     state: chunk_size_magnitude,
                     label: "Chunk size magnitude",
@@ -107,7 +107,7 @@ pub fn BackupConfig() -> Element {
                     step: 1,
                 }
 
-                // pool_size: u8,
+                // pool_size: u8
                 Slider {
                     state: pool_size,
                     label: "Pool size",
@@ -132,13 +132,13 @@ pub fn BackupConfig() -> Element {
             }
 
             // PROMPT IN POPUP ON BACKUP START
-            // password: Option<String>,
+            // password: Option<String>
 
-            // REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT:
-            // override_memory_limit: bool,
+            // REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
+            // override_memory_limit: bool
 
-            // REMOVE OPTION AND ALWAYS SHOW DEBUG LOG:
-            // debug: bool,
+            // REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
+            // debug: bool
         }
     }
 }

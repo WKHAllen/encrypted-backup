@@ -1,27 +1,19 @@
 //! UI component for glob exclusion.
 
-use std::borrow::Cow;
-
 use super::{ControlError, IconButton};
 use crate::classes::*;
 use crate::icons::{ARROW_DOWN, ARROW_UP, PLUS, XMARK};
+use crate::services::parse_pattern;
 use dioxus::prelude::*;
 use glob::{Pattern, PatternError};
-
-/// Parses a glob pattern.
-fn parse_pattern<'a, S>(pattern: S) -> Result<Pattern, (String, PatternError)>
-where
-    S: Into<Cow<'a, str>>,
-{
-    let pattern = pattern.into();
-    Pattern::new(pattern.as_ref()).map_err(|err| (pattern.into_owned(), err))
-}
+use std::rc::Rc;
 
 /// UI component to specify glob exclusions for the backup.
 #[component]
 pub fn ExcludeGlobs(
     /// The glob exclusions state.
-    state: Signal<Vec<Result<Pattern, (String, PatternError)>>>,
+    #[allow(clippy::type_complexity)]
+    state: Signal<Vec<Result<Pattern, (String, Rc<PatternError>)>>>,
 ) -> Element {
     let mut selected_index = use_signal(|| None);
 

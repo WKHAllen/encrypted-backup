@@ -2,6 +2,7 @@
 
 use crate::classes::*;
 use crate::components::{BackupConfig, ExtractionConfig};
+use crate::services::Config as ConfigState;
 use dioxus::prelude::*;
 
 /// The currently selected operation.
@@ -15,7 +16,10 @@ enum OperationType {
 
 /// The backup and extract operation configuration component.
 #[component]
-pub fn Config() -> Element {
+pub fn Config(
+    /// The configuration state.
+    config: ConfigState,
+) -> Element {
     let mut operation_type = use_signal(|| OperationType::Backup);
 
     let backup_tab_class = classes!(
@@ -63,13 +67,14 @@ pub fn Config() -> Element {
                 div {
                     class: "config-options-inner",
 
-                    match operation_type() {
-                        OperationType::Backup => rsx! {
-                            BackupConfig {}
-                        },
-                        OperationType::Extraction => rsx! {
-                            ExtractionConfig {}
-                        },
+                    BackupConfig {
+                        active: matches!(operation_type(), OperationType::Backup),
+                        config: config.backup_config,
+                    }
+
+                    ExtractionConfig {
+                        active: matches!(operation_type(), OperationType::Extraction),
+                        config: config.extraction_config,
                     }
                 }
             }

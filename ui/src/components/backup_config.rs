@@ -2,29 +2,100 @@
 
 use super::{ExcludeGlobs, FileSelect, Icon, IncludePathsSelect, Slider};
 use crate::classes::*;
+use crate::constants::*;
 use crate::icons::*;
+use crate::services::{parse_pattern, BackupConfig as BackupConfigState, Config as ConfigState};
 use backup::{estimated_memory_usage, format_bytes, MEMORY_LIMIT};
 use dioxus::prelude::*;
+use glob::{Pattern, PatternError};
+use std::io;
+use std::rc::Rc;
+use tokio::time::sleep;
 
 /// The backup operation configuration component.
 #[component]
-pub fn BackupConfig() -> Element {
-    let include_paths = use_signal(Vec::new);
-    let output_path = use_signal(|| None);
+pub fn BackupConfig(
+    /// Is this configuration currently active?
+    active: bool,
+    /// The initial configuration.
+    config: BackupConfigState,
+) -> Element {
+    let include_paths = use_signal(|| config.include_paths);
+    let output_path = use_signal(|| config.output_path);
     let output_path_error = use_signal(|| None);
-    let exclude_globs = use_signal(Vec::new);
-    let chunk_size_magnitude = use_signal(|| 16u8);
-    let pool_size = use_signal(|| 4u8);
-    let mut basic_config_open = use_signal(|| true);
-    let mut advanced_config_open = use_signal(|| false);
+    let exclude_globs = use_signal(|| config.exclude_globs.iter().map(parse_pattern).collect());
+    let chunk_size_magnitude = use_signal(|| config.chunk_size_magnitude);
+    let pool_size = use_signal(|| config.pool_size);
+    let mut basic_config_open = use_signal(|| config.basic_config_open);
+    let mut advanced_config_open = use_signal(|| config.advanced_config_open);
 
     let chunk_size = 1 << chunk_size_magnitude();
     let memory_usage_estimate = estimated_memory_usage(chunk_size, pool_size());
     let over_memory_limit = memory_usage_estimate > MEMORY_LIMIT;
 
+    let mut save_task = use_signal(|| None);
+
+    let save_config = move |include_paths,
+                            output_path,
+                            exclude_globs: Vec<Result<Pattern, (String, Rc<PatternError>)>>,
+                            chunk_size_magnitude,
+                            pool_size,
+                            basic_config_open,
+                            advanced_config_open| {
+        spawn(async move {
+            let _ = async move {
+                let mut config = ConfigState::load().await?;
+
+                config.backup_config.include_paths = include_paths;
+                config.backup_config.output_path = output_path;
+                config.backup_config.exclude_globs = exclude_globs
+                    .into_iter()
+                    .map(|maybe_pattern| match maybe_pattern {
+                        Ok(pattern) => pattern.as_str().to_owned(),
+                        Err((invalid_pattern, _)) => invalid_pattern,
+                    })
+                    .collect();
+                config.backup_config.chunk_size_magnitude = chunk_size_magnitude;
+                config.backup_config.pool_size = pool_size;
+                config.backup_config.basic_config_open = basic_config_open;
+                config.backup_config.advanced_config_open = advanced_config_open;
+
+                config.save().await
+            }
+            .await;
+        });
+    };
+
+    use_effect(move || {
+        let include_paths = include_paths();
+        let output_path = output_path();
+        let exclude_globs = exclude_globs();
+        let chunk_size_magnitude = chunk_size_magnitude();
+        let pool_size = pool_size();
+        let basic_config_open = basic_config_open();
+        let advanced_config_open = advanced_config_open();
+
+        let previous_task = save_task.replace(Some(spawn(async move {
+            sleep(SAVE_CONFIG_SLEEP_DURATION).await;
+            save_config(
+                include_paths,
+                output_path,
+                exclude_globs,
+                chunk_size_magnitude,
+                pool_size,
+                basic_config_open,
+                advanced_config_open,
+            );
+        })));
+
+        if let Some(task) = previous_task {
+            task.cancel();
+        }
+    });
+
     rsx! {
         div {
-            class: "backup-config",
+            class: classes!("backup-config", (!active).then_some("backup-config-hidden")),
 
             // BASIC CONFIG OPTIONS
             div {

@@ -255,6 +255,10 @@ h1 {
   flex-direction: column;
 }
 
+.app-loading {
+  flex-grow: 1;
+}
+
 .loading-spinner-container {
   display: flex;
   justify-content: center;
@@ -401,6 +405,22 @@ h1 {
 .config-options-inner {
   flex-grow: 1;
   max-width: var(--config-max-width);
+}
+
+.backup-config {
+  display: unset;
+}
+
+.backup-config.backup-config-hidden {
+  display: none;
+}
+
+.extraction-config {
+  display: unset;
+}
+
+.extraction-config.extraction-config-hidden {
+  display: none;
 }
 
 .config-title-container {

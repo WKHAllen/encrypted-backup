@@ -2,20 +2,28 @@
 
 use super::{FileSelect, Icon, Slider};
 use crate::classes::*;
+use crate::constants::*;
 use crate::icons::CARET_UP;
+use crate::services::{Config as ConfigState, ExtractionConfig as ExtractionConfigState};
 use backup::{backup_chunk_size, estimated_memory_usage, format_bytes, MEMORY_LIMIT};
 use dioxus::prelude::*;
+use tokio::time::sleep;
 
 /// The extraction operation configuration component.
 #[component]
-pub fn ExtractionConfig() -> Element {
-    let backup_path = use_signal(|| None);
+pub fn ExtractionConfig(
+    /// Is this configuration currently active?
+    active: bool,
+    /// The initial configuration.
+    config: ExtractionConfigState,
+) -> Element {
+    let backup_path = use_signal(|| config.backup_path);
     let backup_path_error = use_signal(|| None);
-    let output_path = use_signal(|| None);
+    let output_path = use_signal(|| config.output_path);
     let output_path_error = use_signal(|| None);
-    let pool_size = use_signal(|| 4u8);
-    let mut basic_config_open = use_signal(|| true);
-    let mut advanced_config_open = use_signal(|| false);
+    let pool_size = use_signal(|| config.pool_size);
+    let mut basic_config_open = use_signal(|| config.basic_config_open);
+    let mut advanced_config_open = use_signal(|| config.advanced_config_open);
 
     let memory_usage_estimate = backup_path.with(|path| match path {
         Some(path) => match backup_chunk_size(path) {
@@ -26,9 +34,52 @@ pub fn ExtractionConfig() -> Element {
     });
     let over_memory_limit = memory_usage_estimate.is_some_and(|estimate| estimate > MEMORY_LIMIT);
 
+    let mut save_task = use_signal(|| None);
+
+    let save_config =
+        move |backup_path, output_path, pool_size, basic_config_open, advanced_config_open| {
+            spawn(async move {
+                let _ = async move {
+                    let mut config = ConfigState::load().await?;
+
+                    config.extraction_config.backup_path = backup_path;
+                    config.extraction_config.output_path = output_path;
+                    config.extraction_config.pool_size = pool_size;
+                    config.extraction_config.basic_config_open = basic_config_open;
+                    config.extraction_config.advanced_config_open = advanced_config_open;
+
+                    config.save().await
+                }
+                .await;
+            });
+        };
+
+    use_effect(move || {
+        let backup_path = backup_path();
+        let output_path = output_path();
+        let pool_size = pool_size();
+        let basic_config_open = basic_config_open();
+        let advanced_config_open = advanced_config_open();
+
+        let previous_task = save_task.replace(Some(spawn(async move {
+            sleep(SAVE_CONFIG_SLEEP_DURATION).await;
+            save_config(
+                backup_path,
+                output_path,
+                pool_size,
+                basic_config_open,
+                advanced_config_open,
+            );
+        })));
+
+        if let Some(task) = previous_task {
+            task.cancel();
+        }
+    });
+
     rsx! {
         div {
-            class: "extraction-config",
+            class: classes!("extraction-config", (!active).then_some("extraction-config-hidden")),
 
             // BASIC CONFIG OPTIONS
             div {

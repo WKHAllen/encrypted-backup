@@ -19,8 +19,6 @@
 #![allow(clippy::future_not_send)]
 #![allow(clippy::comparison_chain)]
 #![allow(non_snake_case)]
-// TODO: remove later
-#![allow(unused_imports)]
 
 mod classes;
 mod components;

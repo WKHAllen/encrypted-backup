@@ -8,7 +8,6 @@ use crate::services::{parse_pattern, BackupConfig as BackupConfigState, Config a
 use backup::{estimated_memory_usage, format_bytes, MEMORY_LIMIT};
 use dioxus::prelude::*;
 use glob::{Pattern, PatternError};
-use std::io;
 use std::rc::Rc;
 use tokio::time::sleep;
 

@@ -12,6 +12,7 @@ mod icon;
 mod icon_button;
 mod include_paths_select;
 mod loading;
+mod running_operation;
 mod slider;
 
 pub use app::*;
@@ -26,4 +27,5 @@ pub use icon::*;
 pub use icon_button::*;
 pub use include_paths_select::*;
 pub use loading::*;
+pub use running_operation::*;
 pub use slider::*;

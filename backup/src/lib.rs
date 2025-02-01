@@ -18,13 +18,11 @@
 mod backup;
 mod backup_crypto;
 mod crypto;
-mod logger;
 mod memory;
 mod pool;
 mod types;
 mod util;
 
 pub use crate::backup::{backup, backup_chunk_size, extract};
-pub use crate::logger::init_logger;
 pub use crate::memory::{check_memory, estimated_memory_usage, format_bytes, MEMORY_LIMIT};
 pub use crate::types::{BackupError, BackupResult};

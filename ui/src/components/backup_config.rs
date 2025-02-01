@@ -4,7 +4,9 @@ use super::{ExcludeGlobs, FileSelect, Icon, IncludePathsSelect, Slider};
 use crate::classes::*;
 use crate::constants::*;
 use crate::icons::*;
-use crate::services::{parse_pattern, BackupConfig as BackupConfigState, Config as ConfigState};
+use crate::services::{
+    parse_pattern, BackupConfig as BackupConfigState, Config as ConfigState, Operation,
+};
 use backup::{estimated_memory_usage, format_bytes, MEMORY_LIMIT};
 use dioxus::prelude::*;
 use glob::{Pattern, PatternError};
@@ -18,6 +20,8 @@ pub fn BackupConfig(
     active: bool,
     /// The initial configuration.
     config: BackupConfigState,
+    /// The callback to execute when ready to perform an operation.
+    start: EventHandler<Operation>,
 ) -> Element {
     let include_paths = use_signal(|| config.include_paths);
     let output_path = use_signal(|| config.output_path);
@@ -31,6 +35,20 @@ pub fn BackupConfig(
     let chunk_size = 1 << chunk_size_magnitude();
     let memory_usage_estimate = estimated_memory_usage(chunk_size, pool_size());
     let over_memory_limit = memory_usage_estimate > MEMORY_LIMIT;
+
+    let output_path_specified = output_path.with(Option::is_some);
+    let exclude_globs_ok =
+        exclude_globs.with(|globs: &Vec<Result<Pattern, (String, Rc<PatternError>)>>| {
+            globs.iter().all(Result::is_ok)
+        });
+    let form_valid = output_path_specified && exclude_globs_ok;
+    let form_invalid_message = if !output_path_specified {
+        "Cannot start a backup without selecting an output path"
+    } else if !exclude_globs_ok {
+        "Cannot start a backup with invalid exclusion glob patterns"
+    } else {
+        ""
+    };
 
     let mut save_task = use_signal(|| None);
 
@@ -201,13 +219,41 @@ pub fn BackupConfig(
                 }
             }
 
-            // PROMPT IN POPUP ON BACKUP START
+            div {
+                class: "start",
+
+                div {
+                    button {
+                        r#type: "button",
+                        class: "button primary start-button",
+                        disabled: !form_valid,
+                        onclick: move |_| {
+                            start(Operation::Backup {
+                                include_paths: include_paths(),
+                                output_path: output_path().unwrap(),
+                                exclude_globs: exclude_globs().into_iter().map(|x| x.unwrap()).collect(),
+                                chunk_size_magnitude: chunk_size_magnitude(),
+                                pool_size: pool_size(),
+                            });
+                        },
+
+                        "Start"
+                    }
+                }
+
+                span {
+                    class: "info",
+                    "{form_invalid_message}"
+                }
+            }
+
+            // TODO: PROMPT IN POPUP ON BACKUP START
             // password: Option<String>
 
-            // REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
+            // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
 
-            // REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
+            // TODO: REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
             // debug: bool
         }
     }

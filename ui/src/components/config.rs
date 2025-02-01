@@ -2,7 +2,7 @@
 
 use crate::classes::*;
 use crate::components::{BackupConfig, ExtractionConfig};
-use crate::services::Config as ConfigState;
+use crate::services::{Config as ConfigState, Operation};
 use dioxus::prelude::*;
 
 /// The currently selected operation.
@@ -19,6 +19,8 @@ enum OperationType {
 pub fn Config(
     /// The configuration state.
     config: ConfigState,
+    /// The callback to execute when ready to perform an operation.
+    start: EventHandler<Operation>,
 ) -> Element {
     let mut operation_type = use_signal(|| OperationType::Backup);
 
@@ -70,11 +72,13 @@ pub fn Config(
                     BackupConfig {
                         active: matches!(operation_type(), OperationType::Backup),
                         config: config.backup_config,
+                        start: start,
                     }
 
                     ExtractionConfig {
                         active: matches!(operation_type(), OperationType::Extraction),
                         config: config.extraction_config,
+                        start: start,
                     }
                 }
             }

@@ -727,3 +727,14 @@ input[type="file"].file-select-input {
 .estimated-memory-usage-amount.estimated-memory-usage-amount-large {
   color: var(--error-color);
 }
+
+.start {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.start-button {
+  font-size: 1.2em;
+}

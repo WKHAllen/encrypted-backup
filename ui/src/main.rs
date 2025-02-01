@@ -25,6 +25,7 @@ mod components;
 mod constants;
 mod hooks;
 mod icons;
+mod logger;
 mod number;
 mod services;
 

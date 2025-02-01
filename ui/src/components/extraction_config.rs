@@ -4,7 +4,9 @@ use super::{FileSelect, Icon, Slider};
 use crate::classes::*;
 use crate::constants::*;
 use crate::icons::CARET_UP;
-use crate::services::{Config as ConfigState, ExtractionConfig as ExtractionConfigState};
+use crate::services::{
+    Config as ConfigState, ExtractionConfig as ExtractionConfigState, Operation,
+};
 use backup::{backup_chunk_size, estimated_memory_usage, format_bytes, MEMORY_LIMIT};
 use dioxus::prelude::*;
 use tokio::time::sleep;
@@ -16,6 +18,8 @@ pub fn ExtractionConfig(
     active: bool,
     /// The initial configuration.
     config: ExtractionConfigState,
+    /// The callback to execute when ready to perform an operation.
+    start: EventHandler<Operation>,
 ) -> Element {
     let backup_path = use_signal(|| config.backup_path);
     let backup_path_error = use_signal(|| None);
@@ -33,6 +37,17 @@ pub fn ExtractionConfig(
         None => None,
     });
     let over_memory_limit = memory_usage_estimate.is_some_and(|estimate| estimate > MEMORY_LIMIT);
+
+    let backup_path_specified = backup_path.with(Option::is_some);
+    let output_path_specified = output_path.with(Option::is_some);
+    let form_valid = backup_path_specified && output_path_specified;
+    let form_invalid_message = if !backup_path_specified {
+        "Cannot start an extraction without selecting a backup path"
+    } else if !output_path_specified {
+        "Cannot start an extraction without selecting an output path"
+    } else {
+        ""
+    };
 
     let mut save_task = use_signal(|| None);
 
@@ -186,13 +201,39 @@ pub fn ExtractionConfig(
                 }
             }
 
-            // PROMPT IN POPUP ON EXTRACTION START
+            div {
+                class: "start",
+
+                div {
+                    button {
+                        r#type: "button",
+                        class: "button primary start-button",
+                        disabled: !form_valid,
+                        onclick: move |_| {
+                            start(Operation::Extraction {
+                                backup_path: backup_path().unwrap(),
+                                output_path: output_path().unwrap(),
+                                pool_size: pool_size(),
+                            });
+                        },
+
+                        "Start"
+                    }
+                }
+
+                span {
+                    class: "info",
+                    "{form_invalid_message}"
+                }
+            }
+
+            // TODO: PROMPT IN POPUP ON EXTRACTION START
             // password: Option<String>
 
-            // REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
+            // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
 
-            // REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
+            // TODO: REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
             // debug: bool
         }
     }

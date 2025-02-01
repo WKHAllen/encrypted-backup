@@ -15,6 +15,9 @@
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::multiple_crate_versions)]
 
+mod logger;
+
+use crate::logger::*;
 use backup::*;
 use clap::{Parser, Subcommand};
 use glob::Pattern;

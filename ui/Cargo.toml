@@ -11,9 +11,11 @@ edition = "2021"
 
 [dependencies]
 backup = { path = "../backup" }
+chrono = "0.4"
 dioxus = { version = "0.6", features = ["desktop"] }
 glob = "0.3"
 home = "0.5"
+log = { version = "0.4", features = ["std"] }
 macros = { path = "../macros" }
 rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }

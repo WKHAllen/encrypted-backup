@@ -910,6 +910,7 @@ input[type="file"].file-select-input {
 }
 
 .running-operation-logs {
+  font-family: monospace;
   border: var(--standard-border);
   border-radius: var(--border-radius-medium);
   padding: var(--padding-medium);

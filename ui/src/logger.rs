@@ -7,8 +7,8 @@ use tokio::sync::mpsc::UnboundedSender;
 struct BackupLogger(UnboundedSender<String>);
 
 impl log::Log for BackupLogger {
-    fn enabled(&self, _metadata: &log::Metadata) -> bool {
-        true
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.target().starts_with("backup::")
     }
 
     fn log(&self, record: &log::Record) {

@@ -119,6 +119,9 @@ pub fn BackupConfig(
     let mut password = use_signal(String::new);
     let password_error = password
         .with(|pw| (pw.len() < 8).then(|| "Password must be at least 8 characters".to_owned()));
+    let mut confirm_password = use_signal(String::new);
+    let confirm_password_error =
+        (*password.read() != *confirm_password.read()).then(|| "Passwords do not match".to_owned());
 
     rsx! {
         div {
@@ -276,6 +279,7 @@ pub fn BackupConfig(
                 title: "Backup password",
                 ok_label: "Start",
                 cancel_label: "Cancel",
+                ok_disabled: password_error.is_some() || confirm_password_error.is_some(),
                 oncloserequest: move |ok| {
                     if ok {
                         start(Operation::Backup {
@@ -288,6 +292,7 @@ pub fn BackupConfig(
                         });
                     } else {
                         password.set(String::new());
+                        confirm_password.set(String::new());
                     }
                 },
 
@@ -300,6 +305,13 @@ pub fn BackupConfig(
                     input_type: InputType::Password,
                     label: "Password",
                     error: password_error,
+                }
+
+                TextInput {
+                    state: confirm_password,
+                    input_type: InputType::Password,
+                    label: "Confirm password",
+                    error: confirm_password_error,
                 }
             }
         }

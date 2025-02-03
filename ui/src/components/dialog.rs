@@ -50,6 +50,12 @@ pub fn Dialog(
     ok_label: Option<String>,
     /// The cancel button label. Will not be created if empty.
     cancel_label: Option<String>,
+    /// Whether the ok button should be disabled.
+    #[props(default = false)]
+    ok_disabled: bool,
+    /// Whether the cancel button should be disabled.
+    #[props(default = false)]
+    cancel_disabled: bool,
     /// The callback called with the dialog closing state. Receives `true` if
     /// the ok button was clicked and `false` otherwise.
     #[props(default)]
@@ -126,6 +132,7 @@ pub fn Dialog(
                             Button {
                                 text: "{label}",
                                 style: ButtonStyle::Transparent,
+                                disabled: cancel_disabled,
                                 onclick: move |_| {
                                     oncloserequest.call(false);
 
@@ -140,6 +147,7 @@ pub fn Dialog(
                             Button {
                                 text: "{label}",
                                 style: ButtonStyle::Primary,
+                                disabled: ok_disabled,
                                 onclick: move |_| {
                                     oncloserequest.call(true);
 

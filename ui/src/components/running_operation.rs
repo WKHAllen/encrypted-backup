@@ -1,5 +1,6 @@
 //! UI component for running a backup/extraction operation.
 
+use super::Button;
 use crate::services::Operation;
 use dioxus::prelude::*;
 use std::thread;
@@ -85,8 +86,69 @@ pub fn RunningOperation(
                 }
             }
 
-            div {
+            if let Some(operation_res) = &*res.read() {
+                match operation_res {
+                    Ok(path) => if operation.is_backup() {
+                        rsx! {
+                            div {
+                                class: "running-operation-done",
 
+                                h3 {
+                                    class: "running-operation-status",
+                                    "Backup successful",
+                                }
+
+                                p {
+                                    "Saved to {path.display()}"
+                                }
+
+                                Button {
+                                    text: "Back",
+                                    onclick: back,
+                                }
+                            }
+                        }
+                    } else {
+                        rsx! {
+                            div {
+                                class: "running-operation-done",
+
+                                h3 {
+                                    class: "running-operation-status",
+                                    "Extraction successful",
+                                }
+
+                                p {
+                                    "Extracted to {path.display()}"
+                                }
+
+                                Button {
+                                    text: "Back",
+                                    onclick: back,
+                                }
+                            }
+                        }
+                    },
+                    Err(err) => rsx! {
+                        div {
+                            class: "running-operation-done",
+
+                            h3 {
+                                class: "running-operation-status",
+                                "An error occurred"
+                            }
+
+                            p {
+                                "{err}"
+                            }
+
+                            Button {
+                                text: "Back",
+                                onclick: back,
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -920,3 +920,12 @@ input[type="file"].file-select-input {
   display: flex;
   flex-direction: column;
 }
+
+.running-operation-done {
+  margin-top: 16px;
+}
+
+.running-operation-status {
+  font-weight: 400;
+  margin: 4px 0;
+}

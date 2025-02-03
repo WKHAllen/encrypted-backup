@@ -1,6 +1,6 @@
 //! Extraction operation configuration.
 
-use super::{FileSelect, Icon, Slider};
+use super::{Dialog, FileSelect, Icon, Slider};
 use crate::classes::*;
 use crate::constants::*;
 use crate::icons::CARET_UP;
@@ -228,11 +228,11 @@ pub fn ExtractionConfig(
                 }
             }
 
-            // TODO: PROMPT IN POPUP ON EXTRACTION START
-            // password: Option<String>
-
             // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
+
+            // TODO: PROMPT IN POPUP ON EXTRACTION START
+            // password: String
         }
     }
 }

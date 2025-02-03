@@ -2,6 +2,7 @@
   --background-color: #1f1f27;
   --background-color-hover: #2f2f37;
   --background-color-active: #3f3f47;
+  --background-color-disabled: #353535;
 
   --background-color-darker: #17171f;
   --background-color-lighter: #27272f;
@@ -12,6 +13,7 @@
   --accent-background-color: #002fff;
   --accent-background-color-hover: #0023bc;
   --accent-background-color-active: #001ea2;
+  --accent-background-color-disabled: #4660d7;
 
   --accent-text-color: white;
 
@@ -241,6 +243,54 @@ h1 {
 
 .icon-button .icon {
   pointer-events: none;
+}
+
+.button {
+  border: 0;
+  border-radius: var(--border-radius-medium);
+  padding: 6px 12px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+}
+
+.button:disabled {
+  cursor: default;
+}
+
+.button-primary {
+  background-color: var(--accent-background-color);
+  color: var(--text-color);
+}
+
+.button-primary:hover {
+  background-color: var(--accent-background-color-hover);
+}
+
+.button-primary:active {
+  background-color: var(--accent-background-color-active);
+}
+
+.button-primary:disabled {
+  background-color: var(--accent-background-color-disabled);
+  color: var(--text-color-disabled);
+}
+
+.button-transparent {
+  background-color: var(--background-color);
+  color: var(--text-color);
+}
+
+.button-transparent:hover {
+  background-color: var(--background-color-hover);
+}
+
+.button-transparent:active {
+  background-color: var(--background-color-active);
+}
+
+.button-transparent:disabled {
+  background-color: var(--background-color-disabled);
+  color: var(--text-color-disabled);
 }
 
 #main {

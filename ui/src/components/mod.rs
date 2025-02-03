@@ -2,8 +2,10 @@
 
 mod app;
 mod backup_config;
+mod button;
 mod config;
 mod control_error;
+mod dialog;
 mod exclude_globs;
 mod extraction_config;
 mod file_dialog;
@@ -17,8 +19,10 @@ mod slider;
 
 pub use app::*;
 pub use backup_config::*;
+pub use button::*;
 pub use config::*;
 pub use control_error::*;
+pub use dialog::*;
 pub use exclude_globs::*;
 pub use extraction_config::*;
 pub use file_dialog::*;

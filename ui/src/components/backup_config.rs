@@ -1,6 +1,6 @@
 //! Backup operation configuration.
 
-use super::{ExcludeGlobs, FileSelect, Icon, IncludePathsSelect, Slider};
+use super::{Dialog, ExcludeGlobs, FileSelect, Icon, IncludePathsSelect, Slider};
 use crate::classes::*;
 use crate::constants::*;
 use crate::icons::*;
@@ -248,11 +248,11 @@ pub fn BackupConfig(
                 }
             }
 
-            // TODO: PROMPT IN POPUP ON BACKUP START
-            // password: Option<String>
-
             // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
+
+            // TODO: PROMPT IN POPUP ON BACKUP START
+            // password: String
         }
     }
 }

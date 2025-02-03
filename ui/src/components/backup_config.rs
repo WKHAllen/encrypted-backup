@@ -234,6 +234,7 @@ pub fn BackupConfig(
                                 exclude_globs: exclude_globs().into_iter().map(|x| x.unwrap()).collect(),
                                 chunk_size_magnitude: chunk_size_magnitude(),
                                 pool_size: pool_size(),
+                                password: String::new(),
                             });
                         },
 
@@ -252,9 +253,6 @@ pub fn BackupConfig(
 
             // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
-
-            // TODO: REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
-            // debug: bool
         }
     }
 }

@@ -214,6 +214,7 @@ pub fn ExtractionConfig(
                                 backup_path: backup_path().unwrap(),
                                 output_path: output_path().unwrap(),
                                 pool_size: pool_size(),
+                                password: String::new(),
                             });
                         },
 
@@ -232,9 +233,6 @@ pub fn ExtractionConfig(
 
             // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
-
-            // TODO: REMOVE OPTION AND ALWAYS SHOW DEBUG LOG
-            // debug: bool
         }
     }
 }

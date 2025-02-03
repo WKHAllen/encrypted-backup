@@ -738,3 +738,26 @@ input[type="file"].file-select-input {
 .start-button {
   font-size: 1.2em;
 }
+
+.running-operation {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.running-operation-title {
+  font-weight: 400;
+}
+
+.running-operation-logs {
+  border: var(--standard-border);
+  border-radius: var(--border-radius-medium);
+  padding: var(--padding-medium);
+  background-color: var(--background-color-darker);
+  color: var(--text-color);
+  height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}

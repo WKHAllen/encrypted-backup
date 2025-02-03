@@ -1,6 +1,7 @@
 //! API to trigger a backup or extraction operation.
 
 use backup::BackupResult;
+use chrono::Local;
 use glob::Pattern;
 use std::path::PathBuf;
 
@@ -17,7 +18,7 @@ fn perform_backup(
     backup::backup(
         &include_paths,
         &exclude_globs,
-        output_path,
+        output_path.join(format!("backup-{}.backup", Local::now().format("%Y-%m-%d"))),
         &password,
         1 << chunk_size_magnitude,
         pool_size,
@@ -32,7 +33,15 @@ fn perform_extraction(
     pool_size: u8,
     password: String,
 ) -> BackupResult<PathBuf> {
-    backup::extract(backup_path, output_path, &password, pool_size)
+    backup::extract(
+        backup_path.clone(),
+        output_path.join(backup_path.file_stem().map_or_else(
+            || "extraction".to_owned(),
+            |s| s.to_string_lossy().into_owned(),
+        )),
+        &password,
+        pool_size,
+    )
 }
 
 /// A representation of a backup or extraction operation.

@@ -243,7 +243,7 @@ pub fn ExtractionConfig(
                 },
 
                 p {
-                    "The suggested memory limit of 1 GiB has been exceeded. The expected memory usage with the current configuration is {format_bytes(memory_usage_estimate.unwrap())}. Change the chunk size magnitude or pool size to lower the expected memory usage, or override the memory limit to proceed with the existing configuration."
+                    "The suggested memory limit of 1 GiB has been exceeded. The expected memory usage with the current configuration is {format_bytes(memory_usage_estimate.unwrap_or(0))}. Change the chunk size magnitude or pool size to lower the expected memory usage, or override the memory limit to proceed with the existing configuration."
                 }
             }
 

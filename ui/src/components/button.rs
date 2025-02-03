@@ -25,6 +25,8 @@ pub fn Button(
     /// Whether the button is disabled.
     #[props(default = false)]
     disabled: bool,
+    /// An optional class name for the icon button.
+    class: Option<String>,
     /// The button click callback.
     #[props(default)]
     onclick: EventHandler<()>,
@@ -34,7 +36,7 @@ pub fn Button(
     rsx! {
         button {
             r#type: "button",
-            class: classes!("button", style_class),
+            class: classes!("button", style_class, class),
             onclick: move |_| {
                 onclick.call(());
             },

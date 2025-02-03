@@ -16,6 +16,7 @@ mod include_paths_select;
 mod loading;
 mod running_operation;
 mod slider;
+mod text_input;
 
 pub use app::*;
 pub use backup_config::*;
@@ -33,3 +34,4 @@ pub use include_paths_select::*;
 pub use loading::*;
 pub use running_operation::*;
 pub use slider::*;
+pub use text_input::*;

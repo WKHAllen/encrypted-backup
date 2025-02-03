@@ -7,6 +7,7 @@ use dioxus::prelude::*;
 use macros::*;
 
 /// Dialog size.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, ClassName)]
 pub enum DialogSize {
     /// A small dialog.
@@ -23,6 +24,7 @@ pub enum DialogSize {
 }
 
 /// Dialog action buttons layout.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Hash, ClassName)]
 pub enum DialogActionsLayout {
     /// Left-aligned actions.
@@ -51,7 +53,7 @@ pub fn Dialog(
     /// The callback called with the dialog closing state. Receives `true` if
     /// the ok button was clicked and `false` otherwise.
     #[props(default)]
-    on_close_request: EventHandler<bool>,
+    oncloserequest: EventHandler<bool>,
     /// Whether to close the dialog when the ok button is clicked.
     #[props(default = true)]
     close_on_ok: bool,
@@ -74,7 +76,7 @@ pub fn Dialog(
             class: classes!("dialog-container", state().then_some("dialog-container-open")),
             onclick: move |_| {
                 if !mouse_in() {
-                    on_close_request.call(false);
+                    oncloserequest.call(false);
                     state.set(false);
                 }
             },
@@ -95,19 +97,19 @@ pub fn Dialog(
                         class: "dialog-header",
 
                         div {
-                            class: "dialog-header-space",
+                            class: "dialog-header-space"
+                        }
 
-                            h3 {
-                                class: "dialog-title",
-                                "{title}"
-                            }
+                        h3 {
+                            class: "dialog-title",
+                            "{title}"
+                        }
 
-                            IconButton {
-                                data: XMARK,
-                                onclick: move |_| {
-                                    on_close_request.call(false);
-                                    state.set(false);
-                                }
+                        IconButton {
+                            data: XMARK,
+                            onclick: move |_| {
+                                oncloserequest.call(false);
+                                state.set(false);
                             }
                         }
                     }
@@ -125,7 +127,7 @@ pub fn Dialog(
                                 text: "{label}",
                                 style: ButtonStyle::Transparent,
                                 onclick: move |_| {
-                                    on_close_request.call(false);
+                                    oncloserequest.call(false);
 
                                     if close_on_cancel {
                                         state.set(false);
@@ -139,7 +141,7 @@ pub fn Dialog(
                                 text: "{label}",
                                 style: ButtonStyle::Primary,
                                 onclick: move |_| {
-                                    on_close_request.call(true);
+                                    oncloserequest.call(true);
 
                                     if close_on_ok {
                                         state.set(false);

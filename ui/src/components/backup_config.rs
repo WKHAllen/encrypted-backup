@@ -1,6 +1,9 @@
 //! Backup operation configuration.
 
-use super::{Dialog, ExcludeGlobs, FileSelect, Icon, IncludePathsSelect, Slider};
+use super::{
+    Button, Dialog, ExcludeGlobs, FileSelect, Icon, IncludePathsSelect, InputType, Slider,
+    TextInput,
+};
 use crate::classes::*;
 use crate::constants::*;
 use crate::icons::*;
@@ -109,6 +112,13 @@ pub fn BackupConfig(
             task.cancel();
         }
     });
+
+    let mut confirm_dialog_open = use_signal(|| false);
+    let mut password_dialog_open = use_signal(|| false);
+
+    let mut password = use_signal(String::new);
+    let password_error = password
+        .with(|pw| (pw.len() < 8).then(|| "Password must be at least 8 characters".to_owned()));
 
     rsx! {
         div {
@@ -223,22 +233,17 @@ pub fn BackupConfig(
                 class: "start",
 
                 div {
-                    button {
-                        r#type: "button",
-                        class: "button primary start-button",
+                    Button {
+                        text: "Start",
+                        class: "start-button",
                         disabled: !form_valid,
                         onclick: move |_| {
-                            start(Operation::Backup {
-                                include_paths: include_paths(),
-                                output_path: output_path().unwrap(),
-                                exclude_globs: exclude_globs().into_iter().map(|x| x.unwrap()).collect(),
-                                chunk_size_magnitude: chunk_size_magnitude(),
-                                pool_size: pool_size(),
-                                password: String::new(),
-                            });
-                        },
-
-                        "Start"
+                            if over_memory_limit {
+                                confirm_dialog_open.set(true);
+                            } else {
+                                password_dialog_open.set(true);
+                            }
+                        }
                     }
                 }
 
@@ -248,11 +253,55 @@ pub fn BackupConfig(
                 }
             }
 
-            // TODO: REMOVE OPTION AND DISPLAY CONFIRMATION POPUP IF OVER SUGGESTED MEMORY LIMIT
             // override_memory_limit: bool
+            Dialog {
+                state: confirm_dialog_open,
+                title: "Override memory limit",
+                ok_label: "Override",
+                cancel_label: "Cancel",
+                oncloserequest: move |ok| {
+                    if ok {
+                        password_dialog_open.set(true);
+                    }
+                },
 
-            // TODO: PROMPT IN POPUP ON BACKUP START
+                p {
+                    "The suggested memory limit of 1 GiB has been exceeded. The expected memory usage with the current configuration is {format_bytes(memory_usage_estimate)}. Change the chunk size magnitude or pool size to lower the expected memory usage, or override the memory limit to proceed with the existing configuration."
+                }
+            }
+
             // password: String
+            Dialog {
+                state: password_dialog_open,
+                title: "Backup password",
+                ok_label: "Start",
+                cancel_label: "Cancel",
+                oncloserequest: move |ok| {
+                    if ok {
+                        start(Operation::Backup {
+                            include_paths: include_paths(),
+                            output_path: output_path().unwrap(),
+                            exclude_globs: exclude_globs().into_iter().map(|x| x.unwrap()).collect(),
+                            chunk_size_magnitude: chunk_size_magnitude(),
+                            pool_size: pool_size(),
+                            password: password(),
+                        });
+                    } else {
+                        password.set(String::new());
+                    }
+                },
+
+                p {
+                    "Enter a password with which to encrypt the backup."
+                }
+
+                TextInput {
+                    state: password,
+                    input_type: InputType::Password,
+                    label: "Password",
+                    error: password_error,
+                }
+            }
         }
     }
 }
